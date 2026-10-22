@@ -212,7 +212,7 @@ const RPG_ICONS = {
   'stat-int': makeRpgSvgIcon('#0369a1', '#1c1917', `
     <polygon points="32,8 48,26 32,56 16,26" fill="#38bdf8" stroke="#e0f2fe" stroke-width="2.5"/>
     <line x1="32" y1="8" x2="32" y2="56" stroke="#bae6fd" stroke-width="2"/>
-  `)
+  `),
   // Dedicated Monster Avatars for Target Healthbar
   'monster_robot': makeRpgSvgIcon('#334155', '#0f172a', `
     <rect x="18" y="18" width="28" height="26" rx="4" fill="#64748b" stroke="#94a3b8" stroke-width="2"/>
