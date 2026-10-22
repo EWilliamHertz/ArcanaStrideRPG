@@ -186,14 +186,16 @@ function updateTargetHUD() {
   const e = currentTargetEnemy;
 
   const nameEl = document.getElementById('target-name');
-  const iconEl = document.getElementById('target-icon');
+  const avatarEl = document.getElementById('target-avatar-img');
   const badgeEl = document.getElementById('target-badge');
   const subtitleEl = document.getElementById('target-subtitle');
   const hpTextEl = document.getElementById('target-hp-text');
   const hpBarEl = document.getElementById('target-hp-bar');
 
   if (nameEl) nameEl.innerText = e.name || 'Monster';
-  if (iconEl) iconEl.innerText = e.isBoss ? '👑' : (e.icon || '⚔️');
+  if (avatarEl && typeof getMonsterAvatar === 'function') {
+    avatarEl.src = getMonsterAvatar(e);
+  }
   if (badgeEl) {
     badgeEl.innerText = e.isBoss ? 'BOSS' : 'FOE';
     badgeEl.className = e.isBoss

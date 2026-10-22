@@ -213,6 +213,57 @@ const RPG_ICONS = {
     <polygon points="32,8 48,26 32,56 16,26" fill="#38bdf8" stroke="#e0f2fe" stroke-width="2.5"/>
     <line x1="32" y1="8" x2="32" y2="56" stroke="#bae6fd" stroke-width="2"/>
   `)
+  // Dedicated Monster Avatars for Target Healthbar
+  'monster_robot': makeRpgSvgIcon('#334155', '#0f172a', `
+    <rect x="18" y="18" width="28" height="26" rx="4" fill="#64748b" stroke="#94a3b8" stroke-width="2"/>
+    <circle cx="26" cy="28" r="4" fill="#38bdf8"/>
+    <circle cx="38" cy="28" r="4" fill="#38bdf8"/>
+    <rect x="25" y="37" width="14" height="3" rx="1" fill="#0f172a"/>
+    <line x1="32" y1="18" x2="32" y2="10" stroke="#facc15" stroke-width="3"/>
+    <circle cx="32" cy="9" r="3" fill="#facc15"/>
+  `),
+  'monster_skeleton': makeRpgSvgIcon('#3f3f46', '#18181b', `
+    <path d="M20 28 C20 18 44 18 44 28 C44 36 40 44 38 46 L26 46 C24 44 20 36 20 28 Z" fill="#e4e4e7" stroke="#a1a1aa" stroke-width="2"/>
+    <circle cx="27" cy="28" r="3.5" fill="#ef4444"/>
+    <circle cx="37" cy="28" r="3.5" fill="#ef4444"/>
+    <line x1="28" y1="36" x2="36" y2="36" stroke="#18181b" stroke-width="2"/>
+    <path d="M26 46 V50 M32 46 V50 M38 46 V50" stroke="#18181b" stroke-width="2"/>
+  `),
+  'monster_lich': makeRpgSvgIcon('#4c1d95', '#0f051d', `
+    <path d="M16 48 C18 20 46 20 48 48 C40 44 24 44 16 48 Z" fill="#2e1065" stroke="#a855f7" stroke-width="2"/>
+    <circle cx="27" cy="30" r="3.5" fill="#f0abfc"/>
+    <circle cx="37" cy="30" r="3.5" fill="#f0abfc"/>
+    <polygon points="32,10 36,20 28,20" fill="#c084fc"/>
+    <circle cx="32" cy="38" r="3" fill="#a855f7" opacity="0.6"/>
+  `),
+  'monster_spider': makeRpgSvgIcon('#064e3b', '#022c22', `
+    <ellipse cx="32" cy="32" rx="12" ry="10" fill="#047857" stroke="#10b981" stroke-width="2"/>
+    <circle cx="28" cy="29" r="2" fill="#ef4444"/>
+    <circle cx="36" cy="29" r="2" fill="#ef4444"/>
+    <circle cx="30" cy="33" r="1.5" fill="#ef4444"/>
+    <circle cx="34" cy="33" r="1.5" fill="#ef4444"/>
+    <path d="M22 28 Q10 20 8 32 M42 28 Q54 20 56 32 M22 34 Q8 36 10 46 M42 34 Q56 36 54 46" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round"/>
+  `),
+  'monster_wasp': makeRpgSvgIcon('#854d0e', '#1c1917', `
+    <ellipse cx="32" cy="32" rx="8" ry="14" fill="#eab308" stroke="#fef08a" stroke-width="2"/>
+    <path d="M26 28 H38 M26 34 H38 M27 40 H37" stroke="#1c1917" stroke-width="3"/>
+    <polygon points="32,46 29,54 35,54" fill="#f59e0b"/>
+    <path d="M24 24 Q12 12 18 28 M40 24 Q52 12 46 28" fill="none" stroke="#bae6fd" stroke-width="3" stroke-linecap="round"/>
+  `),
+  'monster_golem': makeRpgSvgIcon('#78350f', '#291003', `
+    <polygon points="20,16 44,16 50,38 32,54 14,38" fill="#92400e" stroke="#fbbf24" stroke-width="2"/>
+    <line x1="22" y1="26" x2="30" y2="28" stroke="#f59e0b" stroke-width="3"/>
+    <line x1="42" y1="26" x2="34" y2="28" stroke="#f59e0b" stroke-width="3"/>
+    <circle cx="26" cy="27" r="2.5" fill="#ef4444"/>
+    <circle cx="38" cy="27" r="2.5" fill="#ef4444"/>
+  `),
+  'monster_boss': makeRpgSvgIcon('#881337', '#1f040d', `
+    <polygon points="16,36 20,20 26,26 32,14 38,26 44,20 48,36" fill="#facc15" stroke="#fef08a" stroke-width="2"/>
+    <rect x="18" y="36" width="28" height="6" rx="2" fill="#e11d48" stroke="#fb7185" stroke-width="1.5"/>
+    <circle cx="26" cy="30" r="3" fill="#ef4444"/>
+    <circle cx="38" cy="30" r="3" fill="#ef4444"/>
+    <polygon points="32,44 26,52 38,52" fill="#f43f5e"/>
+  `)
 };
 
 // Convenience aliases for UI elements
@@ -225,6 +276,28 @@ RPG_ICONS['shield-bash'] = RPG_ICONS.aegis_slam;
 
 function getRpgIcon(key) {
   return RPG_ICONS[key] || RPG_ICONS.broadsword;
+}
+
+function getMonsterAvatar(e) {
+  if (!e) return getRpgIcon('monster_skeleton');
+  if (e.isBoss) return getRpgIcon('monster_boss');
+  const name = String(e.name || '').toLowerCase();
+  if (name.includes('automaton') || name.includes('robot') || name.includes('construct')) {
+    return getRpgIcon('monster_robot');
+  }
+  if (name.includes('corruptor') || name.includes('lich') || name.includes('necromancer') || name.includes('mage')) {
+    return getRpgIcon('monster_lich');
+  }
+  if (name.includes('spider') || name.includes('arachnid') || name.includes('broodmother')) {
+    return getRpgIcon('monster_spider');
+  }
+  if (name.includes('stalker') || name.includes('wasp') || name.includes('flier') || name.includes('swarmer')) {
+    return getRpgIcon('monster_wasp');
+  }
+  if (name.includes('golem') || name.includes('titan')) {
+    return getRpgIcon('monster_golem');
+  }
+  return getRpgIcon('monster_skeleton');
 }
 
 // All skills & consumables that can be dragged onto the 10-slot WoW Action Bar

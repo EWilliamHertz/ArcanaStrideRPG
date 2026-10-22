@@ -76,6 +76,10 @@ function createGameServer() {
       return serveCachedFile(req, res, path.join(PUBLIC_DIR, 'index.html'), 'no-cache');
     }
 
+    if (isGetOrHead && (pathname === '/realm' || pathname === '/realm.html')) {
+      return serveCachedFile(req, res, path.join(PUBLIC_DIR, 'realm.html'), 'no-cache');
+    }
+
     if (isGetOrHead && pathname === '/favicon.ico') {
       res.writeHead(204);
       return res.end();

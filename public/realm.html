@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arcanastride 3D: MMORPG Chronicles</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body class="text-slate-100" onselectstart="return false;" oncontextmenu="return false;">
+
+  <!-- TOP LEFT HUD: COMPACT WOW/DIABLO UNIT FRAME -->
+  <div class="fixed top-3 left-3 z-20 mmo-frame p-3 rounded-xl w-80">
+    <div class="flex justify-between items-center mb-2">
+      <div class="flex items-center gap-2.5">
+        <div onclick="openClassModal()" title="Click to change Hero Rig [C]" class="relative w-12 h-12 rounded-lg bg-slate-950 border-2 border-amber-500/70 flex items-center justify-center shadow-inner cursor-pointer hover:border-yellow-300 overflow-hidden">
+          <img id="hud-avatar-icon" src="" class="w-full h-full object-cover" alt="Hero" />
+          <span id="hud-level-badge" class="absolute -bottom-1 -right-1 bg-amber-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full border border-yellow-300">1</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <h1 id="hud-name" class="text-base font-extrabold tracking-wide text-amber-300 leading-tight">Traveler</h1>
+            <span id="hud-buff-badge" class="hidden text-[9px] bg-rose-600/90 border border-rose-300 text-white px-1.5 py-0.5 rounded font-bold animate-pulse">FURY</span>
+          </div>
+          <p id="hud-class" class="text-[11px] text-cyan-300 font-semibold">Lv.1 Chrono Blade • Tier 1</p>
+        </div>
+      </div>
+      <div class="text-right bg-slate-950/90 px-2 py-1 rounded-lg border border-amber-500/40 flex items-center gap-1.5">
+        <img data-rpg-icon="two-coins" class="w-6 h-6 rounded border border-amber-500/40" alt="Gold" />
+        <div>
+          <span class="text-[8px] text-slate-400 block leading-none">GOLD / CHAOS</span>
+          <div class="flex items-center gap-1">
+            <span id="hud-gold" class="text-xs font-extrabold text-yellow-400">100g</span>
+            <span class="text-slate-600">•</span>
+            <span id="hud-chaos" class="text-[11px] font-extrabold text-amber-300" title="Path of Exile Chaos Orbs">3c</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HP BAR -->
+    <div class="mb-1.5">
+      <div class="flex justify-between text-[11px] mb-0.5">
+        <span class="text-rose-400 font-bold flex items-center gap-1">HEALTH</span>
+        <span id="hud-hp-text" class="text-slate-100 font-bold">150 / 150</span>
+      </div>
+      <div class="w-full bg-slate-950 h-2.5 rounded overflow-hidden border border-slate-700/80">
+        <div id="hud-hp-bar" class="bg-gradient-to-r from-red-700 via-rose-500 to-emerald-400 h-full transition-all duration-150" style="width: 100%"></div>
+      </div>
+    </div>
+
+    <!-- MP BAR -->
+    <div class="mb-2">
+      <div class="flex justify-between text-[11px] mb-0.5">
+        <span class="text-cyan-400 font-bold flex items-center gap-1">MANA</span>
+        <span id="hud-mp-text" class="text-slate-100 font-bold">60 / 60</span>
+      </div>
+      <div class="w-full bg-slate-950 h-2 rounded overflow-hidden border border-slate-700/80">
+        <div id="hud-mp-bar" class="bg-gradient-to-r from-indigo-700 via-blue-500 to-cyan-400 h-full transition-all duration-150" style="width: 100%"></div>
+      </div>
+    </div>
+
+    <!-- QUICK ATTRIBUTES & COMBAT RATINGS ROW -->
+    <div class="grid grid-cols-4 gap-1 text-center text-[10px] bg-slate-950/90 p-1.5 rounded-lg border border-amber-700/40">
+      <div><span class="text-slate-400">ATK</span> <b id="hud-atk" class="text-rose-300">22</b></div>
+      <div><span class="text-slate-400">DEF</span> <b id="hud-def" class="text-cyan-300">12</b></div>
+      <div><span class="text-slate-400">CRIT</span> <b id="hud-crit" class="text-amber-300">12%</b></div>
+      <div><span class="text-slate-400">POT</span> <b class="text-emerald-400"><span id="hud-potions">5</span>/<span id="hud-ethers" class="text-blue-400">3</span></b></div>
+    </div>
+  </div>
+
+  <!-- TOP CENTER HUD: TARGET ENEMY UNIT FRAME & DUNGEON OBJECTIVE TRACKER -->
+  <div class="fixed top-3 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 w-[420px] max-w-[92vw]">
+
+    <!-- TARGET ENEMY HEALTH BAR & UNIT FRAME (Shows when an enemy is clicked/targeted) -->
+    <div id="target-unit-frame" class="hidden mmo-frame px-3 py-2 rounded-xl w-full border-rose-500/80 shadow-2xl relative transition-all">
+      <div class="flex items-center justify-between gap-2 mb-1.5">
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="relative w-8 h-8 rounded-lg bg-slate-950 border border-rose-500/70 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+            <img id="target-avatar-img" src="" class="w-full h-full object-cover" alt="Target" />
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span id="target-name" class="text-xs font-black tracking-wide text-rose-300 truncate">Enemy Name</span>
+              <span id="target-badge" class="text-[9px] bg-rose-600/90 text-white font-extrabold px-1 rounded border border-rose-400">FOE</span>
+            </div>
+            <div id="target-subtitle" class="text-[10px] text-slate-400 truncate">Tier 1 • Wilds Construct</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="text-right">
+            <span id="target-hp-text" class="text-[11px] font-mono font-black text-rose-200">150 / 150 (100%)</span>
+          </div>
+          <button onclick="clearTargetEnemy()" title="Deselect Target [Esc]" class="w-5 h-5 rounded flex items-center justify-center bg-slate-900 hover:bg-rose-950 border border-rose-500/50 text-[10px] text-rose-300 font-bold hover:text-white transition">✕</button>
+        </div>
+      </div>
+      <!-- TARGET HP BAR -->
+      <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-rose-700/60 relative">
+        <div id="target-hp-bar" class="bg-gradient-to-r from-red-700 via-rose-500 to-amber-400 h-full transition-all duration-150" style="width: 100%"></div>
+      </div>
+    </div>
+
+    <!-- WOW DUNGEON OBJECTIVE TRACKER & POE MAP STATUS -->
+    <div id="dungeon-tracker-box" class="mmo-frame px-3.5 py-1.5 rounded-xl w-full">
+      <div class="flex items-center justify-between gap-2 mb-1">
+        <div class="flex items-center gap-2 min-w-0">
+          <img id="tracker-zone-icon" data-rpg-icon="dungeon-portal" class="w-7 h-7 rounded-lg border border-amber-500/60 shrink-0" alt="Zone" />
+          <div class="min-w-0">
+            <div id="tracker-zone-name" class="text-xs font-extrabold tracking-wide text-amber-300 truncate">T1 • Sunlit Outpost Wilds</div>
+            <div id="tracker-zone-mods" class="text-[10px] text-slate-400 truncate">Normal Area • Click [M] for Map Device</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button onclick="toggleDungeonModal()" title="Open Dungeon Finder & PoE Map Device [M]" class="px-2 py-0.5 rounded bg-purple-900/90 hover:bg-purple-800 border border-purple-400/60 text-[10px] font-black text-purple-200 flex items-center gap-1">
+            <img data-rpg-icon="dungeon-portal" class="w-3.5 h-3.5 rounded" alt="" />
+            <span>[M]</span>
+          </button>
+          <button onclick="summonZoneBossNow()" title="Summon Zone Boss Immediately" class="px-2 py-0.5 rounded bg-rose-950/90 hover:bg-rose-900 border border-rose-500/60 text-[10px] font-extrabold text-rose-200">
+            Boss
+          </button>
+        </div>
+      </div>
+      <div class="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-amber-700/50 relative">
+        <div id="tracker-progress-bar" class="bg-gradient-to-r from-amber-600 via-orange-500 to-rose-500 h-full transition-all duration-200" style="width: 0%"></div>
+        <span id="tracker-progress-text" class="absolute inset-0 flex items-center justify-center text-[8px] font-black text-white drop-shadow">
+          Dungeon Clear: 0/6 Foes (Summons Vaelen, Void Scout)
+        </span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TOP RIGHT HUD: RADAR MINIMAP -->
+  <div class="fixed top-3 right-3 z-20 flex flex-col items-end gap-1.5">
+    <div class="mmo-frame p-2.5 rounded-xl flex flex-col items-center">
+      <div class="flex items-center justify-between w-full mb-1 px-1">
+        <span class="text-[10px] uppercase tracking-wider text-amber-300 font-extrabold flex items-center gap-1">
+          Radar Minimap
+        </span>
+        <span id="hud-coords" class="text-[9px] text-slate-400 font-mono">0, 18</span>
+      </div>
+      <canvas id="minimap" width="136" height="136" class="rounded-lg border border-amber-600/50 bg-slate-950"></canvas>
+      <div class="flex gap-2 mt-1.5 text-[9px] text-slate-300">
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-cyan-400 inline-block"></span>You</span>
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>Foe</span>
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>Chest</span>
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>Hub</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER INTERACTION PROMPT -->
+  <div id="interact-prompt" class="fixed top-1/4 left-1/2 -translate-x-1/2 z-20 hidden mmo-frame px-5 py-2 rounded-full text-sm font-bold text-amber-300 animate-pulse">
+    Press [E] to Interact
+  </div>
+
+  <!-- WOW / DIABLO 2 COMPACT BOTTOM ACTION BAR, GLOBES, TOOLTIP & COMBAT LOG -->
+  <div class="fixed bottom-2 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center w-full max-w-4xl px-2 pointer-events-none">
+
+    <!-- HOVER SKILL/ITEM TOOLTIP -->
+    <div id="action-tooltip" class="hidden mmo-frame px-3.5 py-2 rounded-lg mb-1.5 max-w-xs text-xs pointer-events-none shadow-2xl"></div>
+
+    <!-- COMPACT TRANSPARENT COMBAT LOG -->
+    <div id="combat-log" class="glass w-full max-w-xl h-16 rounded-lg px-3 py-1.5 mb-1.5 overflow-y-auto text-[11px] space-y-0.5 font-mono text-slate-300 pointer-events-auto">
+      <div class="text-amber-300 font-semibold">★ Welcome to Arcanastride MMORPG! Walk with [WASD] ([S] turns & rotates camera). Press [M] for Dungeon Finder & Atlas Maps, [O] for Stats/Skills, [I] for Bag, [P] for Shop, [C] for Hero Class!</div>
+    </div>
+
+    <!-- UI SHORTCUT BAR (Placed between Combat Log and Skillbar) -->
+    <div class="flex flex-wrap justify-center items-center gap-1.5 mb-1.5 pointer-events-auto">
+      <button onclick="toggleDungeonModal()" class="mmo-frame px-2.5 py-1 rounded-lg text-[10px] font-bold text-purple-300 hover:border-purple-300 transition flex items-center gap-1 shadow-md">
+        <img data-rpg-icon="dungeon-portal" class="w-4 h-4 rounded" alt="" />
+        <span>[M] Atlas</span>
+      </button>
+      <button onclick="toggleStatsModal()" class="mmo-frame px-2.5 py-1 rounded-lg text-[10px] font-bold text-amber-300 hover:border-yellow-300 transition flex items-center gap-1 shadow-md">
+        <img data-rpg-icon="spell-book" class="w-4 h-4 rounded" alt="" />
+        <span>[O] Stats</span>
+        <span id="top-unspent-badge" class="bg-amber-500 text-slate-950 font-black px-1.5 rounded-full text-[9px]">7</span>
+      </button>
+      <button onclick="toggleInventoryModal()" class="mmo-frame px-2.5 py-1 rounded-lg text-[10px] font-bold text-cyan-300 hover:border-cyan-300 transition flex items-center gap-1 shadow-md">
+        <img data-rpg-icon="knapsack" class="w-4 h-4 rounded" alt="" />
+        <span>[I] Bag</span>
+      </button>
+      <button onclick="openClassModal()" class="mmo-frame px-2.5 py-1 rounded-lg text-[10px] font-bold text-fuchsia-300 hover:border-fuchsia-300 transition flex items-center gap-1 shadow-md">
+        <img data-rpg-icon="visored-helm" class="w-4 h-4 rounded" alt="" />
+        <span>[C] Class</span>
+      </button>
+      <button onclick="toggleShopModal()" class="mmo-frame px-2.5 py-1 rounded-lg text-[10px] font-bold text-emerald-300 hover:border-emerald-300 transition flex items-center gap-1 shadow-md">
+        <img data-rpg-icon="two-coins" class="w-4 h-4 rounded" alt="" />
+        <span>[P] Shop</span>
+      </button>
+      <button onclick="resetCharacter()" class="mmo-frame px-2.5 py-1 rounded-lg text-[10px] font-semibold text-rose-300 hover:border-rose-400 transition shadow-md">Reset</button>
+    </div>
+
+    <!-- MAIN DIABLO 2 / WOW DOCK -->
+    <div class="mmo-frame px-3 pt-2 pb-2.5 rounded-2xl flex items-center gap-2.5 pointer-events-auto relative">
+
+      <!-- LEFT DIABLO HEALTH ORB (Click to drink Health Potion) -->
+      <div onclick="triggerActionById('potion')" title="Health Orb (Click to drink Health Potion)" class="orb-shell cursor-pointer group">
+        <div id="orb-hp-fill" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-red-900 via-rose-600 to-rose-400 transition-all duration-200" style="height: 100%"></div>
+        <div class="orb-gloss"></div>
+        <div class="inset-0 absolute flex flex-col items-center justify-center text-center leading-none">
+          <span class="text-[9px] font-black text-rose-200 drop-shadow">HP</span>
+          <span id="orb-hp-val" class="text-[11px] font-extrabold text-white drop-shadow">150</span>
+        </div>
+      </div>
+
+      <!-- CENTER COMPACT 10-SLOT WOW ACTION BAR (ICONS PACKED CLOSE TOGETHER: gap-1) -->
+      <div class="flex flex-col items-center">
+        <div id="wow-action-bar" class="flex items-center gap-1 bg-slate-950/90 p-1 rounded-lg border border-amber-700/60">
+          <!-- Populated dynamically by renderActionBar() in uiActionBar.js -->
+        </div>
+
+        <!-- SEGMENTED WOW EXP BAR DIRECTLY UNDER THE ACTION SLOTS -->
+        <div class="w-full mt-1.5 bg-slate-950 h-2.5 rounded-full overflow-hidden border border-amber-700/60 relative">
+          <div id="hud-xp-bar" class="bg-gradient-to-r from-purple-700 via-fuchsia-500 to-amber-400 h-full transition-all duration-200" style="width: 0%"></div>
+          <div class="absolute inset-0 flex justify-between px-4 pointer-events-none opacity-35">
+            <div class="w-px h-full bg-black"></div><div class="w-px h-full bg-black"></div><div class="w-px h-full bg-black"></div><div class="w-px h-full bg-black"></div>
+            <div class="w-px h-full bg-black"></div><div class="w-px h-full bg-black"></div><div class="w-px h-full bg-black"></div><div class="w-px h-full bg-black"></div><div class="w-px h-full bg-black"></div>
+          </div>
+          <span id="hud-xp-text" class="absolute inset-0 flex items-center justify-center text-[8px] font-black text-white tracking-wider drop-shadow">EXP 0 / 50</span>
+        </div>
+      </div>
+
+      <!-- RIGHT DIABLO MANA ORB (Click to drink Mana Ether) -->
+      <div onclick="triggerActionById('ether')" title="Mana Orb (Click to drink Mana Ether)" class="orb-shell cursor-pointer group">
+        <div id="orb-mp-fill" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-950 via-blue-600 to-cyan-400 transition-all duration-200" style="height: 100%"></div>
+        <div class="orb-gloss"></div>
+        <div class="inset-0 absolute flex flex-col items-center justify-center text-center leading-none">
+          <span class="text-[9px] font-black text-cyan-200 drop-shadow">MP</span>
+          <span id="orb-mp-val" class="text-[11px] font-extrabold text-white drop-shadow">60</span>
+        </div>
+      </div>
+
+      <!-- WOW MICRO-MENU BUTTONS WITH SELF-CONTAINED SVG ICONS (I, O, C, P, M) -->
+      <div class="flex flex-col gap-1 pl-1 border-l border-amber-700/40">
+        <div class="flex gap-1">
+          <button onclick="toggleInventoryModal()" title="Inventory & Equipment [I]" class="w-8 h-8 rounded bg-slate-900 hover:bg-slate-800 border border-amber-500/70 flex items-center justify-center relative overflow-hidden">
+            <img data-rpg-icon="knapsack" class="w-full h-full object-cover" alt="Bag" />
+            <span class="absolute bottom-0 right-0.5 text-[8px] font-black text-amber-300 bg-black/80 px-0.5 rounded">I</span>
+          </button>
+          <button onclick="toggleStatsModal()" title="Character Attributes & Skill Tree [O]" class="w-8 h-8 rounded bg-slate-900 hover:bg-slate-800 border border-amber-500/70 flex items-center justify-center relative overflow-hidden">
+            <img data-rpg-icon="spell-book" class="w-full h-full object-cover" alt="Skills" />
+            <span class="absolute bottom-0 right-0.5 text-[8px] font-black text-cyan-300 bg-black/80 px-0.5 rounded">O</span>
+            <span id="dock-unspent-dot" class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-black animate-ping"></span>
+          </button>
+          <button onclick="toggleDungeonModal()" title="Dungeon Finder & PoE Map Device [M]" class="w-8 h-8 rounded bg-slate-900 hover:bg-slate-800 border border-purple-400/80 flex items-center justify-center relative overflow-hidden">
+            <img data-rpg-icon="dungeon-portal" class="w-full h-full object-cover" alt="Dungeons" />
+            <span class="absolute bottom-0 right-0.5 text-[8px] font-black text-purple-300 bg-black/80 px-0.5 rounded">M</span>
+          </button>
+        </div>
+        <div class="flex gap-1">
+          <button onclick="openClassModal()" title="Switch Hero Class & 3D Rig [C]" class="w-8 h-8 rounded bg-slate-900 hover:bg-slate-800 border border-amber-500/70 flex items-center justify-center relative overflow-hidden">
+            <img data-rpg-icon="visored-helm" class="w-full h-full object-cover" alt="Class" />
+            <span class="absolute bottom-0 right-0.5 text-[8px] font-black text-fuchsia-300 bg-black/80 px-0.5 rounded">C</span>
+          </button>
+          <button onclick="toggleShopModal()" title="Nomadic Quartermaster Outpost Shop [P]" class="w-8 h-8 rounded bg-slate-900 hover:bg-slate-800 border border-amber-500/70 flex items-center justify-center relative overflow-hidden">
+            <img data-rpg-icon="two-coins" class="w-full h-full object-cover" alt="Shop" />
+            <span class="absolute bottom-0 right-0.5 text-[8px] font-black text-emerald-300 bg-black/80 px-0.5 rounded">P</span>
+          </button>
+          <button onclick="returnToOutpostHub()" title="Teleport to Outpost Sanctuary Hub" class="w-8 h-8 rounded bg-slate-900 hover:bg-slate-800 border border-emerald-500/70 flex items-center justify-center relative overflow-hidden">
+            <img data-rpg-icon="angel-outfit" class="w-full h-full object-cover" alt="Hub" />
+            <span class="absolute bottom-0 right-0.5 text-[7px] font-black text-emerald-300 bg-black/80 px-0.5 rounded">HUB</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- [M] WOW DUNGEON FINDER & PATH OF EXILE ATLAS MAP DEVICE MODAL -->
+  <div id="dungeon-modal" class="fixed inset-0 z-30 bg-black/80 hidden flex items-center justify-center p-4">
+    <div class="mmo-frame p-5 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto text-slate-100">
+      <div class="flex justify-between items-center border-b border-amber-700/50 pb-3 mb-4">
+        <div class="flex items-center gap-3">
+          <img data-rpg-icon="dungeon-portal" class="w-11 h-11 rounded-xl border-2 border-purple-400/70 shadow-lg" alt="Dungeon Finder" />
+          <div>
+            <h2 class="text-lg font-extrabold text-amber-400 tracking-wide">DUNGEON FINDER & ATLAS MAP DEVICE [M]</h2>
+            <p class="text-[11px] text-slate-400">Queue into 6 World of Warcraft style Dungeons with unique Monster Packs & Bosses, infused with Path of Exile Map Modifiers!</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="returnToOutpostHub(); toggleDungeonModal();" class="px-3 py-1 rounded-lg bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/60 text-xs font-bold text-emerald-300">Warp to Outpost Hub</button>
+          <button onclick="toggleDungeonModal()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">[ESC / M] Close</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- LEFT 4 COLS: PATH OF EXILE ATLAS MAP DEVICE & CHAOS ORB CRAFTER -->
+        <div class="lg:col-span-4 bg-slate-950/90 p-4 rounded-xl border border-amber-700/50 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <img data-rpg-icon="chaos-orb" class="w-8 h-8 rounded-lg border border-amber-400/70" alt="Chaos Orb" />
+                <div>
+                  <div class="text-xs font-extrabold uppercase tracking-wider text-amber-300">PoE Map Device</div>
+                  <div class="text-[10px] text-slate-400">Craft Map Modifiers for extra Loot</div>
+                </div>
+              </div>
+              <div class="bg-amber-950/90 border border-amber-500/60 px-2.5 py-1 rounded-lg text-right">
+                <span class="text-[9px] text-amber-200 block leading-none">CHAOS ORBS</span>
+                <span id="poe-chaos-count" class="text-sm font-black text-amber-400">3</span>
+              </div>
+            </div>
+
+            <!-- MAP RARITY SELECTOR -->
+            <div class="mb-3">
+              <div class="text-[10px] font-bold uppercase text-slate-400 mb-1.5">1. Select Map Tier Rarity</div>
+              <div class="grid grid-cols-2 gap-1.5">
+                <button id="rarity-btn-normal" onclick="selectPoEMapRarity('normal')" class="px-2.5 py-1.5 rounded-lg border text-xs bg-slate-900 text-slate-300 border-slate-700">
+                  Normal (0 Mods)
+                </button>
+                <button id="rarity-btn-magic" onclick="selectPoEMapRarity('magic')" class="px-2.5 py-1.5 rounded-lg border text-xs bg-slate-900 text-slate-300 border-slate-700">
+                  Magic (1-2 Mods)
+                </button>
+                <button id="rarity-btn-rare" onclick="selectPoEMapRarity('rare')" class="px-2.5 py-1.5 rounded-lg border text-xs bg-slate-900 text-slate-300 border-slate-700">
+                  Rare (3-4 Mods)
+                </button>
+                <button id="rarity-btn-corrupted" onclick="selectPoEMapRarity('corrupted')" class="px-2.5 py-1.5 rounded-lg border text-xs bg-slate-900 text-slate-300 border-slate-700">
+                  Vaal Corrupted (5)
+                </button>
+              </div>
+            </div>
+
+            <!-- REROLL WITH CHAOS ORB BUTTON -->
+            <button onclick="rollPoEMapAffixes(true)" class="w-full mb-3 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-700 via-yellow-600 to-amber-700 hover:from-amber-600 hover:to-yellow-500 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg">
+              <img data-rpg-icon="chaos-orb" class="w-5 h-5 rounded border border-black/40" alt="" />
+              <span>Reforge Map Affixes (Cost: 1 Chaos Orb)</span>
+            </button>
+
+            <!-- ROLLED AFFIXES LIST -->
+            <div class="mb-3">
+              <div class="text-[10px] font-bold uppercase text-cyan-300 mb-1.5">2. Active Map Affixes</div>
+              <div id="poe-affix-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                <!-- Populated by renderDungeonModal() -->
+              </div>
+            </div>
+          </div>
+
+          <!-- AGGREGATE MAP QUANTITY & PACK SIZE SUMMARY -->
+          <div class="pt-3 border-t border-slate-800">
+            <div class="text-[10px] font-bold uppercase text-amber-300 mb-1.5">Map Yield & Danger Summary</div>
+            <div id="poe-bonus-summary" class="grid grid-cols-2 gap-1.5">
+              <!-- Populated by renderDungeonModal() -->
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT 8 COLS: WORLD OF WARCRAFT DUNGEON FINDER & BOSS ENCYCLOPEDIA -->
+        <div class="lg:col-span-8 bg-slate-950/90 p-4 rounded-xl border border-amber-700/50">
+          <div class="flex justify-between items-center mb-3">
+            <div>
+              <span class="text-xs font-extrabold uppercase tracking-wider text-purple-300">World of Warcraft Dungeon Finder & Endgame Atlas</span>
+              <span class="block text-[10px] text-slate-400">Higher Tier Dungeons spawn denser monster packs, deadlier Elite skeletons & golems, and drop higher-tier Wargear + Chaos Orbs!</span>
+            </div>
+          </div>
+
+          <div id="dungeon-zone-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[64vh] overflow-y-auto pr-1">
+            <!-- Populated dynamically by renderDungeonModal() in uiDungeons.js -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- [O] CHARACTER ATTRIBUTES & SKILL BOOK MODAL (DIABLO 2 + WOW TALENTS & DRAG-AND-DROP) -->
+  <div id="stats-modal" class="fixed inset-0 z-30 bg-black/75 hidden flex items-center justify-center p-4">
+    <div class="mmo-frame p-5 rounded-2xl max-w-4xl w-full max-h-[88vh] overflow-y-auto text-slate-100">
+      <div class="flex justify-between items-center border-b border-amber-700/50 pb-3 mb-4">
+        <div class="flex items-center gap-2.5">
+          <img data-rpg-icon="spell-book" class="w-10 h-10 rounded-xl border border-amber-500/60" alt="Grimoire" />
+          <div>
+            <h2 class="text-lg font-extrabold text-amber-400 tracking-wide">HERO ATTRIBUTES & SKILL GRIMOIRE [O]</h2>
+            <p class="text-[11px] text-slate-400">Spend Attribute Points on level-up, rank up skills, and drag any skill or Sword Slash onto your bottom Action Bar!</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="respecCharacter()" class="px-3 py-1 rounded-lg bg-rose-950/90 hover:bg-rose-900 border border-rose-500/50 text-xs font-bold text-rose-200">Respec Points</button>
+          <button onclick="toggleStatsModal()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">[ESC / O] Close</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+        <!-- LEFT 5 COLS: DIABLO 2 ATTRIBUTE POINT ALLOCATION -->
+        <div class="md:col-span-5 bg-slate-950/80 p-4 rounded-xl border border-amber-700/40 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <span class="text-xs font-extrabold uppercase tracking-wider text-amber-300">Core Attributes</span>
+              <span class="bg-amber-500/20 border border-amber-400 text-amber-300 text-xs font-extrabold px-2.5 py-0.5 rounded-full">
+                Unspent: <b id="modal-stat-points">5</b> pts
+              </span>
+            </div>
+
+            <div class="space-y-2.5 text-xs">
+              <!-- STRENGTH -->
+              <div class="flex items-center justify-between bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+                <div class="flex items-center gap-2">
+                  <img data-rpg-icon="stat-str" class="w-8 h-8 rounded border border-rose-500/50 shrink-0" alt="STR" />
+                  <div>
+                    <div class="font-bold text-rose-300">Strength (STR)</div>
+                    <div class="text-[10px] text-slate-400">+2 ATK & Melee Damage / pt</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span id="stat-str-val" class="text-sm font-black text-white w-12 text-right">10</span>
+                  <button onclick="allocateStat('str', 1)" class="stat-plus-btn px-2 py-1 bg-amber-600 hover:bg-amber-500 text-black font-black rounded text-xs">+1</button>
+                  <button onclick="allocateStat('str', 5)" class="stat-plus-btn px-1.5 py-1 bg-amber-800 hover:bg-amber-700 text-amber-100 font-bold rounded text-[10px]">+5</button>
+                </div>
+              </div>
+
+              <!-- DEXTERITY -->
+              <div class="flex items-center justify-between bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+                <div class="flex items-center gap-2">
+                  <img data-rpg-icon="stat-dex" class="w-8 h-8 rounded border border-emerald-500/50 shrink-0" alt="DEX" />
+                  <div>
+                    <div class="font-bold text-emerald-300">Dexterity (DEX)</div>
+                    <div class="text-[10px] text-slate-400">+1 DEF & +1.2% Crit / pt</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span id="stat-dex-val" class="text-sm font-black text-white w-12 text-right">10</span>
+                  <button onclick="allocateStat('dex', 1)" class="stat-plus-btn px-2 py-1 bg-amber-600 hover:bg-amber-500 text-black font-black rounded text-xs">+1</button>
+                  <button onclick="allocateStat('dex', 5)" class="stat-plus-btn px-1.5 py-1 bg-amber-800 hover:bg-amber-700 text-amber-100 font-bold rounded text-[10px]">+5</button>
+                </div>
+              </div>
+
+              <!-- VITALITY -->
+              <div class="flex items-center justify-between bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+                <div class="flex items-center gap-2">
+                  <img data-rpg-icon="stat-vit" class="w-8 h-8 rounded border border-amber-500/50 shrink-0" alt="VIT" />
+                  <div>
+                    <div class="font-bold text-amber-300">Vitality (VIT)</div>
+                    <div class="text-[10px] text-slate-400">+15 Max HP & Life / pt</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span id="stat-vit-val" class="text-sm font-black text-white w-12 text-right">10</span>
+                  <button onclick="allocateStat('vit', 1)" class="stat-plus-btn px-2 py-1 bg-amber-600 hover:bg-amber-500 text-black font-black rounded text-xs">+1</button>
+                  <button onclick="allocateStat('vit', 5)" class="stat-plus-btn px-1.5 py-1 bg-amber-800 hover:bg-amber-700 text-amber-100 font-bold rounded text-[10px]">+5</button>
+                </div>
+              </div>
+
+              <!-- INTELLIGENCE -->
+              <div class="flex items-center justify-between bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+                <div class="flex items-center gap-2">
+                  <img data-rpg-icon="stat-int" class="w-8 h-8 rounded border border-cyan-500/50 shrink-0" alt="INT" />
+                  <div>
+                    <div class="font-bold text-cyan-300">Intelligence (INT)</div>
+                    <div class="text-[10px] text-slate-400">+10 Max MP & +2.5% Spell / pt</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span id="stat-int-val" class="text-sm font-black text-white w-12 text-right">10</span>
+                  <button onclick="allocateStat('int', 1)" class="stat-plus-btn px-2 py-1 bg-amber-600 hover:bg-amber-500 text-black font-black rounded text-xs">+1</button>
+                  <button onclick="allocateStat('int', 5)" class="stat-plus-btn px-1.5 py-1 bg-amber-800 hover:bg-amber-700 text-amber-100 font-bold rounded text-[10px]">+5</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DERIVED COMBAT SUMMARY -->
+          <div class="mt-4 pt-3 border-t border-slate-800 grid grid-cols-2 gap-2 text-xs bg-slate-900/60 p-3 rounded-lg">
+            <div>Total Attack: <b id="summary-atk" class="text-rose-300">22</b></div>
+            <div>Total Defense: <b id="summary-def" class="text-cyan-300">12</b></div>
+            <div>Crit Chance: <b id="summary-crit" class="text-amber-300">12%</b></div>
+            <div>Skill Power: <b id="summary-spell" class="text-fuchsia-300">+25%</b></div>
+            <div>Max Health: <b id="summary-hp" class="text-emerald-300">150</b></div>
+            <div>Max Mana: <b id="summary-mp" class="text-blue-300">60</b></div>
+          </div>
+        </div>
+
+        <!-- RIGHT 7 COLS: WOW / DIABLO 2 SKILL TREE & DRAG-TO-BAR SPELLBOOK -->
+        <div class="md:col-span-7 bg-slate-950/80 p-4 rounded-xl border border-amber-700/40">
+          <div class="flex justify-between items-center mb-3">
+            <div>
+              <span class="text-xs font-extrabold uppercase tracking-wider text-cyan-300">Combat Skills & Spellbook</span>
+              <span class="block text-[10px] text-slate-400">Drag any icon onto the bottom Action Bar, or pick a Slot # to assign & customize its keybind!</span>
+            </div>
+            <span class="bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-xs font-extrabold px-2.5 py-0.5 rounded-full">
+              Skill Points: <b id="modal-skill-points">2</b>
+            </span>
+          </div>
+
+          <div id="skill-book-list" class="space-y-2 max-h-[52vh] overflow-y-auto pr-1">
+            <!-- Populated dynamically by renderStatsModal() in uiStatsSkills.js -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- [I] INVENTORY, EQUIPMENT & CONSUMABLES MODAL -->
+  <div id="inventory-modal" class="fixed inset-0 z-30 bg-black/75 hidden flex items-center justify-center p-4">
+    <div class="mmo-frame p-5 rounded-2xl max-w-3xl w-full max-h-[88vh] overflow-y-auto text-slate-100">
+      <div class="flex justify-between items-center border-b border-amber-700/50 pb-3 mb-4">
+        <div class="flex items-center gap-2.5">
+          <img data-rpg-icon="knapsack" class="w-10 h-10 rounded-xl border border-amber-500/60" alt="Inventory" />
+          <div>
+            <h2 class="text-lg font-extrabold text-amber-400 tracking-wide">HERO INVENTORY & WARGEAR [I]</h2>
+            <p class="text-[11px] text-slate-400">Click gear in your backpack to Equip it, or drag Potions/Ethers/Elixirs onto any Action Bar slot!</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="sellAllBagItems()" class="px-3 py-1 rounded-lg bg-amber-950 hover:bg-amber-900 border border-amber-500/50 text-xs font-bold text-yellow-300">Sell Unequipped Gear</button>
+          <button onclick="toggleInventoryModal()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">[ESC / I] Close</button>
+        </div>
+      </div>
+
+      <!-- EQUIPPED GEAR SLOTS (4 PAPERDOLL SLOTS) -->
+      <div class="mb-4">
+        <div class="text-xs font-extrabold uppercase tracking-wider text-amber-300 mb-2">Equipped Wargear</div>
+        <div id="equipped-gear-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <!-- Populated dynamically by renderInventoryModal() -->
+        </div>
+      </div>
+
+      <!-- DRAGGABLE CONSUMABLES BELT -->
+      <div class="mb-4">
+        <div class="text-xs font-extrabold uppercase tracking-wider text-emerald-300 mb-2">Consumable Belt (Drag to Action Bar or Click to Use)</div>
+        <div id="consumables-belt-grid" class="grid grid-cols-3 gap-2.5">
+          <!-- Populated dynamically by renderInventoryModal() -->
+        </div>
+      </div>
+
+      <!-- BACKPACK LOOT GRID -->
+      <div>
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-xs font-extrabold uppercase tracking-wider text-cyan-300">Backpack Loot (<span id="bag-count">0</span>/16)</span>
+          <span class="text-[10px] text-slate-400">Monsters & Treasure Chests drop rare equipment</span>
+        </div>
+        <div id="backpack-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <!-- Populated dynamically by renderInventoryModal() -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- [P] NOMADIC QUARTERMASTER SHOP MODAL WITH FULL PAINTED SVG ITEM ICONS -->
+  <div id="shop-modal" class="fixed inset-0 z-30 bg-black/75 hidden flex items-center justify-center p-4">
+    <div class="mmo-frame p-6 rounded-2xl max-w-lg w-full">
+      <div class="flex justify-between items-center border-b border-amber-700/50 pb-3 mb-4">
+        <div class="flex items-center gap-3">
+          <img data-rpg-icon="two-coins" class="w-11 h-11 rounded-xl border-2 border-amber-400/70 shadow-lg" alt="Quartermaster" />
+          <div>
+            <h2 class="text-xl font-extrabold text-amber-400">Nomadic Outpost Quartermaster [P]</h2>
+            <p class="text-[11px] text-slate-400">Potions, Chaos Orbs, Mystery Wargear & Blacksmith Upgrades</p>
+          </div>
+        </div>
+        <button onclick="closeShop()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">[ESC / P] Close</button>
+      </div>
+
+      <div class="space-y-2 text-xs">
+        <button onclick="buyItem('potion')" class="w-full flex justify-between items-center bg-slate-900/95 hover:bg-slate-800 p-2.5 rounded-xl border border-slate-700 hover:border-emerald-500/60 transition">
+          <span class="flex items-center gap-3 text-left">
+            <img data-rpg-icon="health-potion" class="w-9 h-9 rounded-lg border border-emerald-500/60 shrink-0" alt="Health Potion" />
+            <span>
+              <b class="text-emerald-300 block">Crimson Health Potion</b>
+              <span class="text-[10px] text-slate-400">Instantly restores 45% of Maximum Health</span>
+            </span>
+          </span>
+          <span class="font-black text-yellow-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-amber-500/40">25g</span>
+        </button>
+
+        <button onclick="buyItem('ether')" class="w-full flex justify-between items-center bg-slate-900/95 hover:bg-slate-800 p-2.5 rounded-xl border border-slate-700 hover:border-blue-500/60 transition">
+          <span class="flex items-center gap-3 text-left">
+            <img data-rpg-icon="mana-potion" class="w-9 h-9 rounded-lg border border-blue-500/60 shrink-0" alt="Mana Ether" />
+            <span>
+              <b class="text-cyan-300 block">Azure Mana Ether</b>
+              <span class="text-[10px] text-slate-400">Instantly restores 55% of Maximum Mana</span>
+            </span>
+          </span>
+          <span class="font-black text-yellow-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-amber-500/40">30g</span>
+        </button>
+
+        <button onclick="buyItem('elixir')" class="w-full flex justify-between items-center bg-slate-900/95 hover:bg-slate-800 p-2.5 rounded-xl border border-slate-700 hover:border-amber-500/60 transition">
+          <span class="flex items-center gap-3 text-left">
+            <img data-rpg-icon="round-bottom-flask" class="w-9 h-9 rounded-lg border border-amber-500/60 shrink-0" alt="Elixir" />
+            <span>
+              <b class="text-amber-300 block">Elixir of Blood Fury</b>
+              <span class="text-[10px] text-slate-400">Grants +35% Attack Power & +15% Crit Chance for 20s</span>
+            </span>
+          </span>
+          <span class="font-black text-yellow-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-amber-500/40">60g</span>
+        </button>
+
+        <button onclick="buyItem('chaos')" class="w-full flex justify-between items-center bg-slate-900/95 hover:bg-slate-800 p-2.5 rounded-xl border border-amber-500/50 hover:border-amber-400 transition">
+          <span class="flex items-center gap-3 text-left">
+            <img data-rpg-icon="chaos-orb" class="w-9 h-9 rounded-lg border border-amber-400 shrink-0" alt="Chaos Orb" />
+            <span>
+              <b class="text-amber-300 block">Path of Exile Chaos Orb</b>
+              <span class="text-[10px] text-slate-400">Reforges Map Affixes in the [M] Atlas Map Device for high loot</span>
+            </span>
+          </span>
+          <span class="font-black text-yellow-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-amber-500/40">90g</span>
+        </button>
+
+        <button onclick="buyItem('mystery')" class="w-full flex justify-between items-center bg-slate-900/95 hover:bg-slate-800 p-2.5 rounded-xl border border-fuchsia-500/50 hover:border-fuchsia-400 transition">
+          <span class="flex items-center gap-3 text-left">
+            <img data-rpg-icon="mystery-chest" class="w-9 h-9 rounded-lg border border-fuchsia-400 shrink-0" alt="Mystery Chest" />
+            <span>
+              <b class="text-fuchsia-300 block">Gamble Runed Wargear Chest</b>
+              <span class="text-[10px] text-slate-400">Rolls a random Rare, Epic, or Mythic equipment piece (+2 Tier)</span>
+            </span>
+          </span>
+          <span class="font-black text-yellow-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-amber-500/40">120g</span>
+        </button>
+
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button onclick="buyItem('atk')" class="flex justify-between items-center bg-slate-900/95 hover:bg-slate-800 p-2.5 rounded-xl border border-slate-700 hover:border-rose-500/60 transition">
+            <span class="flex items-center gap-2 text-left">
+              <img data-rpg-icon="anvil" class="w-8 h-8 rounded-lg border border-rose-500/50 shrink-0" alt="Hone Blade" />
+              <span>
+                <b class="text-rose-300 block text-[11px]">Hone Weapon</b>
+                <span class="text-[9px] text-slate-400">+3 Base ATK</span>
+              </span>
+            </span>
+            <span class="font-black text-yellow-400 text-xs">75g</span>
+          </button>
+
+          <button onclick="buyItem('def')" class="flex justify-between items-center bg-slate-900/95 hover:bg-slate-800 p-2.5 rounded-xl border border-slate-700 hover:border-cyan-500/60 transition">
+            <span class="flex items-center gap-2 text-left">
+              <img data-rpg-icon="breastplate" class="w-8 h-8 rounded-lg border border-cyan-500/50 shrink-0" alt="Temper Armor" />
+              <span>
+                <b class="text-cyan-300 block text-[11px]">Temper Armor</b>
+                <span class="text-[9px] text-slate-400">+2 Base DEF</span>
+              </span>
+            </span>
+            <span class="font-black text-yellow-400 text-xs">75g</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- [C] HERO ARCHETYPE & 3D RIG SELECTION MODAL WITH PAINTED SVG CLASS EMBLEMS -->
+  <div id="class-modal" class="fixed inset-0 z-30 bg-black/75 hidden flex items-center justify-center p-4">
+    <div class="mmo-frame p-6 rounded-2xl max-w-lg w-full">
+      <div class="flex justify-between items-center border-b border-amber-700/50 pb-3 mb-4">
+        <div class="flex items-center gap-3">
+          <img data-rpg-icon="visored-helm" class="w-10 h-10 rounded-xl border border-amber-400/70" alt="Class" />
+          <div>
+            <h2 class="text-xl font-extrabold text-amber-400">Select Hero Archetype & 3D Rig [C]</h2>
+            <p class="text-[11px] text-slate-400">Switch your 3D animated character model and class specialization</p>
+          </div>
+        </div>
+        <button onclick="closeClassModal()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">[ESC / C] Close</button>
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-slate-400 block mb-1">Hero Name</label>
+        <input id="hero-name-input" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" placeholder="Enter Hero Name" />
+      </div>
+      <div class="space-y-2.5">
+        <div onclick="selectArchetype('Chrono Blade', 'knight')" class="cursor-pointer bg-slate-900/90 hover:bg-indigo-950/70 p-3 rounded-xl border border-cyan-500/40 transition flex items-center gap-3.5">
+          <img data-rpg-icon="visored-helm" class="w-12 h-12 rounded-xl border-2 border-cyan-400/70 shrink-0 shadow-md" alt="Chrono Blade" />
+          <div class="flex-1">
+            <div class="flex justify-between font-bold text-cyan-300 text-sm"><span>Chrono Blade (KayKit Knight Rig)</span><span class="text-xs text-cyan-400">Greatsword Knight</span></div>
+            <p class="text-xs text-slate-400 mt-0.5">Armored Greatsword Knight with 360° Whirlwind Cleave, Sword Combos & Dodge Roll.</p>
+          </div>
+        </div>
+        <div onclick="selectArchetype('Void Weaver', 'mage')" class="cursor-pointer bg-slate-900/90 hover:bg-indigo-950/70 p-3 rounded-xl border border-fuchsia-500/40 transition flex items-center gap-3.5">
+          <img data-rpg-icon="wizard-face" class="w-12 h-12 rounded-xl border-2 border-fuchsia-400/70 shrink-0 shadow-md" alt="Void Weaver" />
+          <div class="flex-1">
+            <div class="flex justify-between font-bold text-fuchsia-300 text-sm"><span>Void Weaver (KayKit Mage Rig)</span><span class="text-xs text-fuchsia-400">Arcane Battlemage</span></div>
+            <p class="text-xs text-slate-400 mt-0.5">Arcane Battlemage wielding Staff & Grimoire with AoE Spellcast & Life Drain.</p>
+          </div>
+        </div>
+        <div onclick="selectArchetype('Aegis Vanguard', 'vanguard')" class="cursor-pointer bg-slate-900/90 hover:bg-indigo-950/70 p-3 rounded-xl border border-amber-500/40 transition flex items-center gap-3.5">
+          <img data-rpg-icon="spartan-helmet" class="w-12 h-12 rounded-xl border-2 border-amber-400/70 shrink-0 shadow-md" alt="Aegis Vanguard" />
+          <div class="flex-1">
+            <div class="flex justify-between font-bold text-amber-300 text-sm"><span>Aegis Vanguard (Shield Paladin Rig)</span><span class="text-xs text-amber-400">Sword & Shield</span></div>
+            <p class="text-xs text-slate-400 mt-0.5">Heavy Sword & Spike-Shield Defender. Aegis Slam bolsters DEF & staggers foes.</p>
+          </div>
+        </div>
+        <div onclick="selectArchetype('Chrono Blade', 'soldier')" class="cursor-pointer bg-slate-900/90 hover:bg-indigo-950/70 p-3 rounded-xl border border-emerald-500/40 transition flex items-center gap-3.5">
+          <img data-rpg-icon="space-suit" class="w-12 h-12 rounded-xl border-2 border-emerald-400/70 shrink-0 shadow-md" alt="Rift Trooper" />
+          <div class="flex-1">
+            <div class="flex justify-between font-bold text-emerald-300 text-sm"><span>Rift Trooper (Three.js Soldier Rig)</span><span class="text-xs text-emerald-400">Vanguard Trooper</span></div>
+            <p class="text-xs text-slate-400 mt-0.5">Tactical Vanguard Soldier mesh with Aether Blade & smooth skeletal animations.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLOATING DAMAGE CONTAINER -->
+  <div id="floating-container" class="fixed inset-0 pointer-events-none z-10"></div>
+
+  <!-- MODULAR CLIENT JAVASCRIPT -->
+  <script src="/js/config.js"></script>
+  <script src="/js/state.js"></script>
+  <script src="/js/scene.js"></script>
+  <script src="/js/heroModel.js"></script>
+  <script src="/js/world.js"></script>
+  <script src="/js/combat.js"></script>
+  <script src="/js/uiActionBar.js"></script>
+  <script src="/js/uiStatsSkills.js"></script>
+  <script src="/js/uiInventory.js"></script>
+  <script src="/js/uiDungeons.js"></script>
+  <script src="/js/hud.js"></script>
+  <script src="/js/input.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

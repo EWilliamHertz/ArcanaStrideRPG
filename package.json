@@ -4,7 +4,9 @@
   "main": "game.js",
   "scripts": {
     "start": "node game.js",
-    "dev": "node --watch game.js",
+    "dev": "next dev -p 8080",
+    "build": "next build",
+    "server": "node game.js",
     "tunnel": "/home/ewilliamhe/.local/bin/ngrok http 8080"
   },
   "keywords": [
@@ -17,6 +19,17 @@
   "license": "ISC",
   "description": "Arcanastride 3D: Open World Chronicles",
   "dependencies": {
+    "framer-motion": "^11.18.2",
+    "lucide-react": "^1.61.0",
+    "next": "^14.2.35",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.31",
+    "tailwindcss": "^4.3.3"
   }
 }

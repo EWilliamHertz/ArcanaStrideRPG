@@ -121,7 +121,10 @@ function animate(now) {
     const dist = e.group.position.distanceTo(playerGroup.position);
     const aggroRange = e.isBoss ? 36 : 28;
 
-    if (dist < aggroRange && dist > 2.2) {
+    const atkRange = e.atkRange || (e.isRanged ? 15.0 : (e.isBoss ? 4.2 : 3.4));
+    const stopDist = e.stopDist || (e.isRanged ? 8.5 : 2.2);
+
+    if (dist < aggroRange && dist > stopDist) {
       const toPlayer = new THREE.Vector3().subVectors(playerGroup.position, e.group.position);
       toPlayer.y = 0;
       toPlayer.normalize();
@@ -150,28 +153,39 @@ function animate(now) {
       e.group.position.addScaledVector(moveDir, baseSpd * (e.speedMult || 1));
       e.group.lookAt(playerGroup.position.x, 0, playerGroup.position.z);
       setEnemyAnim(e, 'walk');
-    } else if (dist <= 2.4 && now - e.lastHitPlayer > 1150) {
+    } else if (dist <= atkRange && now - (e.lastHitPlayer || 0) > (e.atkCooldown || 1200)) {
       e.lastHitPlayer = now;
       e.group.lookAt(playerGroup.position.x, 0, playerGroup.position.z);
-      setEnemyAnim(e, 'attack', 520);
+      setEnemyAnim(e, 'attack', 600);
 
-      const dmg = Math.max(1, e.atk - derived.totalDef + Math.floor(Math.random() * 4));
+      const zone = typeof getActiveZoneConfig === 'function' ? getActiveZoneConfig() : DUNGEON_ZONES[0];
+      const modSummary = typeof getMapModifiersSummary === 'function' ? getMapModifiersSummary() : { dmgMult: 1 };
+      const zoneMult = (zone && zone.monsterMult) || 1.0;
+      const effAtk = Math.round((e.atk || 16) * zoneMult * (modSummary.dmgMult || 1.0));
+      // RPG armor mitigation formula: ensures noticeable damage regardless of defense stacking
+      const defReduction = 100 / (100 + Math.max(0, derived.totalDef) * 0.7);
+      const dmg = Math.max(2, Math.round(effAtk * defReduction) + Math.floor(Math.random() * 4));
+
       player.hp = Math.max(0, player.hp - dmg);
-      createBurst(playerGroup.position, 0xef4444, 8);
-      spawnFloatingText(playerGroup.position, `-${dmg}`, "#f87171");
+      createBurst(playerGroup.position, e.isBoss ? 0xf43f5e : (e.isRanged ? 0xc084fc : 0xef4444), 9);
+      spawnFloatingText(playerGroup.position, `-${dmg}`, e.isBoss ? "#fb7185" : "#f87171");
+
+      if (e.isRanged) {
+        createBurst(e.group.position, 0xc084fc, 8);
+      }
 
       if (player.hp <= 0) {
-        const lostGold = Math.floor(player.gold * 0.2);
-        player.gold -= lostGold;
+        const lostGold = Math.floor((player.gold || 0) * 0.15);
+        player.gold = Math.max(0, (player.gold || 0) - lostGold);
         player.hp = Math.round(derived.calcMaxHp * 0.6);
         playerGroup.position.set(0, 0, 18);
         playerGroup.rotation.y = Math.PI;
-        addLog(`You fell in ${zone.name}! Emergency warp to Outpost Nexus (-${lostGold}g).`, "text-rose-500 font-bold");
+        addLog(`You fell in combat against ${e.name}! Emergency warp to Outpost Nexus (-${lostGold}g).`, "text-rose-500 font-bold");
       }
       updateHUD();
       syncSave();
     } else {
-      // Standing still at a distance or waiting between melee swings -> Idle pose!
+      e.group.lookAt(playerGroup.position.x, 0, playerGroup.position.z);
       setEnemyAnim(e, 'idle');
     }
   });
@@ -205,10 +219,10 @@ function animate(now) {
     }
   }
 
-  // Prevent enemies from penetrating inside player coordinates and clamp Y
+  // Prevent enemies from penetrating inside player coordinates (allow them within melee reach 1.35m)
   enemies.forEach(e => {
     const pDist = e.group.position.distanceTo(playerGroup.position);
-    const minPlayerDist = (e.radius || 1.3) + 0.8;
+    const minPlayerDist = 1.35;
     if (pDist < minPlayerDist && pDist > 0.001) {
       const pushOut = new THREE.Vector3().subVectors(e.group.position, playerGroup.position).normalize();
       e.group.position.addScaledVector(pushOut, minPlayerDist - pDist);

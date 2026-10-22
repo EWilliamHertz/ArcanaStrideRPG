@@ -362,12 +362,18 @@ function spawnEnemy(isBoss = false, indexHint = -1) {
   const finalHp = Math.round(template.hp * (isBoss ? 1 : tierScale) * modSummary.hpMult);
   const finalAtk = Math.round(template.atk * (isBoss ? 1 : tierScale) * modSummary.dmgMult);
 
+  const isRanged = template.name.includes("Corruptor") || template.name.includes("Lich") || template.name.includes("Necromancer") || template.name.includes("Mage") || forcedModel === 'skeletonMage' || forcedModel === 'wasp' || forcedModel === 'flier';
+
   const enemyObj = {
     isBoss,
+    isRanged,
     forcedModel,
     name: template.name,
     icon: template.icon || '⚔️',
     radius: (template.scale || 1) * (isBoss ? 1.9 : 1.25),
+    atkRange: isRanged ? 15.0 : (isBoss ? 4.2 : 3.4),
+    stopDist: isRanged ? 8.5 : 2.2,
+    atkCooldown: isRanged ? 1600 : (isBoss ? 1050 : 1250),
     maxHp: finalHp,
     hp: finalHp,
     atk: finalAtk,
