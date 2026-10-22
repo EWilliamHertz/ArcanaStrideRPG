@@ -39,8 +39,11 @@ function loadSave() {
       if (saved.elixirs === undefined) {
         merged.elixirs = 2;
       }
-      if (saved.chaosOrbs === undefined) {
+      if (saved.chaosOrbs === undefined || typeof merged.chaosOrbs !== 'number' || isNaN(merged.chaosOrbs)) {
         merged.chaosOrbs = 3;
+      }
+      if (typeof merged.gold !== 'number' || isNaN(merged.gold) || merged.gold < 0) {
+        merged.gold = 100;
       }
       return merged;
     } catch (e) {
@@ -51,6 +54,9 @@ function loadSave() {
 }
 
 function writeSave(data) {
+  if (data && (typeof data.gold !== 'number' || isNaN(data.gold) || data.gold < 0)) {
+    data.gold = 0;
+  }
   fs.writeFileSync(SAVE_FILE, JSON.stringify(data, null, 2));
 }
 

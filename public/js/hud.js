@@ -22,6 +22,12 @@ function hydrateStaticIcons() {
 }
 
 function updateHUD() {
+  if (typeof player.gold !== 'number' || isNaN(player.gold) || player.gold < 0) {
+    player.gold = 0;
+  }
+  if (typeof player.chaosOrbs !== 'number' || isNaN(player.chaosOrbs) || player.chaosOrbs < 0) {
+    player.chaosOrbs = 0;
+  }
   const derived = getDerivedStats();
   player.hp = Math.min(player.hp, derived.calcMaxHp);
   player.mp = Math.min(player.mp, derived.calcMaxMp);
@@ -157,3 +163,66 @@ function drawMinimap() {
   mapCtx.arc(cx, cy, 4, 0, Math.PI * 2);
   mapCtx.fill();
 }
+
+function setTargetEnemy(enemy) {
+  if (!enemy) return;
+  currentTargetEnemy = enemy;
+  updateTargetHUD();
+}
+
+function updateTargetHUD() {
+  const frame = document.getElementById('target-unit-frame');
+  if (!frame) return;
+
+  if (!currentTargetEnemy || !enemies.includes(currentTargetEnemy) || currentTargetEnemy.hp <= 0) {
+    frame.classList.add('hidden');
+    if (currentTargetEnemy && currentTargetEnemy.hp <= 0) {
+      currentTargetEnemy = null;
+    }
+    return;
+  }
+
+  frame.classList.remove('hidden');
+  const e = currentTargetEnemy;
+
+  const nameEl = document.getElementById('target-name');
+  const iconEl = document.getElementById('target-icon');
+  const badgeEl = document.getElementById('target-badge');
+  const subtitleEl = document.getElementById('target-subtitle');
+  const hpTextEl = document.getElementById('target-hp-text');
+  const hpBarEl = document.getElementById('target-hp-bar');
+
+  if (nameEl) nameEl.innerText = e.name || 'Monster';
+  if (iconEl) iconEl.innerText = e.isBoss ? '👑' : (e.icon || '⚔️');
+  if (badgeEl) {
+    badgeEl.innerText = e.isBoss ? 'BOSS' : 'FOE';
+    badgeEl.className = e.isBoss
+      ? 'text-[9px] bg-rose-600 text-white font-black px-1.5 py-0.5 rounded border border-rose-300 animate-pulse'
+      : 'text-[9px] bg-amber-600/90 text-white font-bold px-1 rounded border border-amber-400';
+  }
+  if (subtitleEl) {
+    const zone = typeof getActiveZone === 'function' ? getActiveZone() : { tier: 1 };
+    subtitleEl.innerText = e.isBoss ? `Tier ${zone.tier} • Dungeon Boss` : `Tier ${zone.tier} • Hostile`;
+  }
+
+  const pct = Math.max(0, Math.min(100, (e.hp / e.maxHp) * 100));
+  if (hpTextEl) {
+    hpTextEl.innerText = `${Math.max(0, e.hp)} / ${e.maxHp} (${Math.round(pct)}%)`;
+  }
+  if (hpBarEl) {
+    hpBarEl.style.width = `${pct}%`;
+    if (e.isBoss) {
+      hpBarEl.className = 'bg-gradient-to-r from-red-700 via-rose-500 to-amber-300 h-full transition-all duration-150';
+    } else {
+      hpBarEl.className = 'bg-gradient-to-r from-red-600 via-rose-500 to-amber-400 h-full transition-all duration-150';
+    }
+  }
+}
+
+function clearTargetEnemy() {
+  currentTargetEnemy = null;
+  const frame = document.getElementById('target-unit-frame');
+  if (frame) frame.classList.add('hidden');
+  if (targetGroundRing) targetGroundRing.visible = false;
+}
+

@@ -61,10 +61,11 @@ function animate(now) {
   }
 
   // Check Loot Cache Pickups & Bob 2D Treasure Sprites
-  const zone = typeof getActiveZone === 'function' ? getActiveZone() : DUNGEON_ZONES[0];
-  const mapBonuses = typeof getMapAggregateBonuses === 'function'
-    ? getMapAggregateBonuses()
-    : { quantMult: 1 };
+  const zone = typeof getActiveZoneConfig === 'function' ? getActiveZoneConfig() : (typeof getActiveZone === 'function' ? getActiveZone() : DUNGEON_ZONES[0]);
+  const modSummary = typeof getMapModifiersSummary === 'function'
+    ? getMapModifiersSummary()
+    : { quantMult: 1, quantBonus: 0 };
+  const quantMult = Number(modSummary.quantMult) || (1 + (Number(modSummary.quantBonus) || 0) / 100);
 
   for (let i = caches.length - 1; i >= 0; i--) {
     const c = caches[i];
@@ -72,20 +73,21 @@ function animate(now) {
       c.iconSprite.position.y = 2.3 + Math.sin(now * 0.004 + i) * 0.25;
     }
     if (playerGroup.position.distanceTo(c.group.position) < 2.9) {
-      const goldGain = Math.round((18 + Math.floor(Math.random() * 26)) * (zone.lootTierBonus + 1) * mapBonuses.quantMult);
-      player.gold += goldGain;
+      const tierBonus = Math.max(0, Number(zone.lootTierBonus ?? (zone.tier ? zone.tier - 1 : 0)) || 0);
+      const goldGain = Math.max(15, Math.round((18 + Math.floor(Math.random() * 26)) * (tierBonus + 1) * quantMult));
+      player.gold = Math.max(0, (Number(player.gold) || 0) + goldGain);
       createBurst(c.group.position, 0xfacc15, 16);
       spawnFloatingText(c.group.position, `+${goldGain} GOLD`, "#fde047");
       addLog(`Opened Runed Chest! Found ${goldGain} Gold.`, "text-yellow-300");
 
-      if (Math.random() < Math.min(0.95, 0.55 * mapBonuses.quantMult) && (player.inventory || []).length < 16) {
-        const chestLoot = generateLootDrop(zone.lootTierBonus + 1);
+      if (Math.random() < Math.min(0.95, 0.55 * quantMult) && (player.inventory || []).length < 16) {
+        const chestLoot = generateLootDrop(tierBonus + 1);
         player.inventory.push(chestLoot);
         addLog(`★ CHEST TREASURE: Looted [${chestLoot.rarity}] ${chestLoot.name}! Open [I] to equip!`, "text-amber-300 font-bold");
       }
 
-      if (Math.random() < 0.25 * mapBonuses.quantMult) {
-        player.chaosOrbs = (player.chaosOrbs || 0) + 1;
+      if (Math.random() < 0.25 * quantMult) {
+        player.chaosOrbs = Math.max(0, (Number(player.chaosOrbs) || 0) + 1);
         addLog(`★ ATLAS CURRENCY: Chest contained +1 Chaos Orb! (Total: ${player.chaosOrbs})`, "text-amber-400 font-extrabold");
       }
 
@@ -97,7 +99,21 @@ function animate(now) {
     }
   }
 
-  // Enemy AI & Billboard Healthbars
+  // MMORPG Target Ground Projector Ring Update
+  if (currentTargetEnemy && enemies.includes(currentTargetEnemy) && currentTargetEnemy.hp > 0) {
+    if (targetGroundRing) {
+      targetGroundRing.visible = true;
+      targetGroundRing.position.set(currentTargetEnemy.group.position.x, 0.06, currentTargetEnemy.group.position.z);
+      targetGroundRing.rotation.z += 0.02;
+      const s = (currentTargetEnemy.scale || 1.0) * (currentTargetEnemy.isBoss ? 1.5 : 1.0);
+      targetGroundRing.scale.set(s, s, s);
+    }
+  } else {
+    if (targetGroundRing) targetGroundRing.visible = false;
+    if (currentTargetEnemy) clearTargetEnemy();
+  }
+
+  // Enemy AI, Flocking Avoidance & Billboard Healthbars
   const derived = getDerivedStats();
   enemies.forEach(e => {
     e.hpBg.lookAt(camera.position);
@@ -106,9 +122,32 @@ function animate(now) {
     const aggroRange = e.isBoss ? 36 : 28;
 
     if (dist < aggroRange && dist > 2.2) {
-      const dir = new THREE.Vector3().subVectors(playerGroup.position, e.group.position).normalize();
+      const toPlayer = new THREE.Vector3().subVectors(playerGroup.position, e.group.position);
+      toPlayer.y = 0;
+      toPlayer.normalize();
+
+      // Flocking / crowd repulsion from nearby monsters to prevent stacking while pursuing
+      let repulseX = 0, repulseZ = 0;
+      for (let j = 0; j < enemies.length; j++) {
+        const other = enemies[j];
+        if (other === e) continue;
+        const diffX = e.group.position.x - other.group.position.x;
+        const diffZ = e.group.position.z - other.group.position.z;
+        const d2 = diffX * diffX + diffZ * diffZ;
+        const minD = (e.radius || 1.3) + (other.radius || 1.3) + 1.2;
+        if (d2 < minD * minD && d2 > 0.001) {
+          const d = Math.sqrt(d2);
+          const str = (minD - d) / minD;
+          repulseX += (diffX / d) * str * 1.6;
+          repulseZ += (diffZ / d) * str * 1.6;
+        }
+      }
+
+      const moveDir = new THREE.Vector3(toPlayer.x + repulseX, 0, toPlayer.z + repulseZ);
+      if (moveDir.lengthSq() > 0.001) moveDir.normalize();
+
       const baseSpd = e.isBoss ? 0.155 : 0.125;
-      e.group.position.addScaledVector(dir, baseSpd * (e.speedMult || 1));
+      e.group.position.addScaledVector(moveDir, baseSpd * (e.speedMult || 1));
       e.group.lookAt(playerGroup.position.x, 0, playerGroup.position.z);
       setEnemyAnim(e, 'walk');
     } else if (dist <= 2.4 && now - e.lastHitPlayer > 1150) {
@@ -135,6 +174,46 @@ function animate(now) {
       // Standing still at a distance or waiting between melee swings -> Idle pose!
       setEnemyAnim(e, 'idle');
     }
+  });
+
+  // Physical separation: ensure monsters never stack on top of each other
+  for (let iter = 0; iter < 2; iter++) {
+    for (let i = 0; i < enemies.length; i++) {
+      const e1 = enemies[i];
+      const r1 = e1.radius || 1.3;
+      for (let j = i + 1; j < enemies.length; j++) {
+        const e2 = enemies[j];
+        const r2 = e2.radius || 1.3;
+        const minDist = r1 + r2;
+        const dx = e1.group.position.x - e2.group.position.x;
+        const dz = e1.group.position.z - e2.group.position.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < minDist * minDist) {
+          const d = Math.max(0.001, Math.sqrt(d2));
+          const overlap = minDist - d;
+          const nx = dx / d;
+          const nz = dz / d;
+          const w1 = e1.isBoss ? 0.15 : 0.5;
+          const w2 = e2.isBoss ? 0.15 : 0.5;
+          const sum = w1 + w2;
+          e1.group.position.x += nx * overlap * (w2 / sum);
+          e1.group.position.z += nz * overlap * (w2 / sum);
+          e2.group.position.x -= nx * overlap * (w1 / sum);
+          e2.group.position.z -= nz * overlap * (w1 / sum);
+        }
+      }
+    }
+  }
+
+  // Prevent enemies from penetrating inside player coordinates and clamp Y
+  enemies.forEach(e => {
+    const pDist = e.group.position.distanceTo(playerGroup.position);
+    const minPlayerDist = (e.radius || 1.3) + 0.8;
+    if (pDist < minPlayerDist && pDist > 0.001) {
+      const pushOut = new THREE.Vector3().subVectors(e.group.position, playerGroup.position).normalize();
+      e.group.position.addScaledVector(pushOut, minPlayerDist - pDist);
+    }
+    e.group.position.y = 0;
   });
 
   // Update Slash Waves

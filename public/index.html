@@ -72,35 +72,68 @@
     </div>
   </div>
 
-  <!-- TOP CENTER HUD: WOW DUNGEON OBJECTIVE TRACKER & POE MAP STATUS -->
-  <div class="fixed top-3 left-1/2 -translate-x-1/2 z-20 mmo-frame px-3.5 py-2 rounded-xl w-[410px] max-w-[92vw]">
-    <div class="flex items-center justify-between gap-2 mb-1.5">
-      <div class="flex items-center gap-2 min-w-0">
-        <img id="tracker-zone-icon" data-rpg-icon="dungeon-portal" class="w-8 h-8 rounded-lg border border-amber-500/60 shrink-0" alt="Zone" />
-        <div class="min-w-0">
-          <div id="tracker-zone-name" class="text-xs font-extrabold tracking-wide text-amber-300 truncate">T1 • Sunlit Outpost Wilds</div>
-          <div id="tracker-zone-mods" class="text-[10px] text-slate-400 truncate">Normal Area • Click [M] to open Dungeon Finder & PoE Map Device</div>
+  <!-- TOP CENTER HUD: TARGET ENEMY UNIT FRAME & DUNGEON OBJECTIVE TRACKER -->
+  <div class="fixed top-3 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 w-[420px] max-w-[92vw]">
+
+    <!-- TARGET ENEMY HEALTH BAR & UNIT FRAME (Shows when an enemy is clicked/targeted) -->
+    <div id="target-unit-frame" class="hidden mmo-frame px-3 py-2 rounded-xl w-full border-rose-500/80 shadow-2xl relative transition-all">
+      <div class="flex items-center justify-between gap-2 mb-1.5">
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="relative w-8 h-8 rounded-lg bg-slate-950 border border-rose-500/70 flex items-center justify-center shrink-0 overflow-hidden text-base">
+            <span id="target-icon">👾</span>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span id="target-name" class="text-xs font-black tracking-wide text-rose-300 truncate">Enemy Name</span>
+              <span id="target-badge" class="text-[9px] bg-rose-600/90 text-white font-extrabold px-1 rounded border border-rose-400">FOE</span>
+            </div>
+            <div id="target-subtitle" class="text-[10px] text-slate-400 truncate">Tier 1 • Wilds Construct</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="text-right">
+            <span id="target-hp-text" class="text-[11px] font-mono font-black text-rose-200">150 / 150 (100%)</span>
+          </div>
+          <button onclick="clearTargetEnemy()" title="Deselect Target [Esc]" class="w-5 h-5 rounded flex items-center justify-center bg-slate-900 hover:bg-rose-950 border border-rose-500/50 text-[10px] text-rose-300 font-bold hover:text-white transition">✕</button>
         </div>
       </div>
-      <div class="flex items-center gap-1 shrink-0">
-        <button onclick="toggleDungeonModal()" title="Open Dungeon Finder & PoE Map Device [M]" class="px-2 py-1 rounded bg-purple-900/90 hover:bg-purple-800 border border-purple-400/60 text-[10px] font-black text-purple-200 flex items-center gap-1">
-          <img data-rpg-icon="dungeon-portal" class="w-3.5 h-3.5 rounded" alt="" />
-          <span>[M] Dungeons</span>
-        </button>
-        <button onclick="summonZoneBossNow()" title="Summon Zone Boss Immediately" class="px-2 py-1 rounded bg-rose-950/90 hover:bg-rose-900 border border-rose-500/60 text-[10px] font-extrabold text-rose-200">
-          Boss
-        </button>
+      <!-- TARGET HP BAR -->
+      <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-rose-700/60 relative">
+        <div id="target-hp-bar" class="bg-gradient-to-r from-red-700 via-rose-500 to-amber-400 h-full transition-all duration-150" style="width: 100%"></div>
       </div>
     </div>
-    <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-amber-700/50 relative">
-      <div id="tracker-progress-bar" class="bg-gradient-to-r from-amber-600 via-orange-500 to-rose-500 h-full transition-all duration-200" style="width: 0%"></div>
-      <span id="tracker-progress-text" class="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white drop-shadow">
-        Dungeon Clear: 0/6 Foes (Summons Vaelen, Void Scout)
-      </span>
+
+    <!-- WOW DUNGEON OBJECTIVE TRACKER & POE MAP STATUS -->
+    <div id="dungeon-tracker-box" class="mmo-frame px-3.5 py-1.5 rounded-xl w-full">
+      <div class="flex items-center justify-between gap-2 mb-1">
+        <div class="flex items-center gap-2 min-w-0">
+          <img id="tracker-zone-icon" data-rpg-icon="dungeon-portal" class="w-7 h-7 rounded-lg border border-amber-500/60 shrink-0" alt="Zone" />
+          <div class="min-w-0">
+            <div id="tracker-zone-name" class="text-xs font-extrabold tracking-wide text-amber-300 truncate">T1 • Sunlit Outpost Wilds</div>
+            <div id="tracker-zone-mods" class="text-[10px] text-slate-400 truncate">Normal Area • Click [M] for Map Device</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button onclick="toggleDungeonModal()" title="Open Dungeon Finder & PoE Map Device [M]" class="px-2 py-0.5 rounded bg-purple-900/90 hover:bg-purple-800 border border-purple-400/60 text-[10px] font-black text-purple-200 flex items-center gap-1">
+            <img data-rpg-icon="dungeon-portal" class="w-3.5 h-3.5 rounded" alt="" />
+            <span>[M]</span>
+          </button>
+          <button onclick="summonZoneBossNow()" title="Summon Zone Boss Immediately" class="px-2 py-0.5 rounded bg-rose-950/90 hover:bg-rose-900 border border-rose-500/60 text-[10px] font-extrabold text-rose-200">
+            Boss
+          </button>
+        </div>
+      </div>
+      <div class="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-amber-700/50 relative">
+        <div id="tracker-progress-bar" class="bg-gradient-to-r from-amber-600 via-orange-500 to-rose-500 h-full transition-all duration-200" style="width: 0%"></div>
+        <span id="tracker-progress-text" class="absolute inset-0 flex items-center justify-center text-[8px] font-black text-white drop-shadow">
+          Dungeon Clear: 0/6 Foes (Summons Vaelen, Void Scout)
+        </span>
+      </div>
     </div>
+
   </div>
 
-  <!-- TOP RIGHT HUD: MINIMAP & QUICK SHORTCUTS WITH PAINTED SVG ICONS -->
+  <!-- TOP RIGHT HUD: RADAR MINIMAP -->
   <div class="fixed top-3 right-3 z-20 flex flex-col items-end gap-1.5">
     <div class="mmo-frame p-2.5 rounded-xl flex flex-col items-center">
       <div class="flex items-center justify-between w-full mb-1 px-1">
@@ -116,30 +149,6 @@
         <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>Chest</span>
         <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>Hub</span>
       </div>
-    </div>
-    <div class="flex flex-wrap justify-end gap-1">
-      <button onclick="toggleDungeonModal()" class="mmo-frame px-2 py-1 rounded-lg text-[10px] font-bold text-purple-300 hover:border-purple-300 transition flex items-center gap-1">
-        <img data-rpg-icon="dungeon-portal" class="w-4 h-4 rounded" alt="" />
-        <span>[M] Atlas</span>
-      </button>
-      <button onclick="toggleStatsModal()" class="mmo-frame px-2 py-1 rounded-lg text-[10px] font-bold text-amber-300 hover:border-yellow-300 transition flex items-center gap-1">
-        <img data-rpg-icon="spell-book" class="w-4 h-4 rounded" alt="" />
-        <span>[O] Stats</span>
-        <span id="top-unspent-badge" class="bg-amber-500 text-slate-950 font-black px-1.5 rounded-full text-[9px]">7</span>
-      </button>
-      <button onclick="toggleInventoryModal()" class="mmo-frame px-2 py-1 rounded-lg text-[10px] font-bold text-cyan-300 hover:border-cyan-300 transition flex items-center gap-1">
-        <img data-rpg-icon="knapsack" class="w-4 h-4 rounded" alt="" />
-        <span>[I] Bag</span>
-      </button>
-      <button onclick="openClassModal()" class="mmo-frame px-2 py-1 rounded-lg text-[10px] font-bold text-fuchsia-300 hover:border-fuchsia-300 transition flex items-center gap-1">
-        <img data-rpg-icon="visored-helm" class="w-4 h-4 rounded" alt="" />
-        <span>[C] Class</span>
-      </button>
-      <button onclick="toggleShopModal()" class="mmo-frame px-2 py-1 rounded-lg text-[10px] font-bold text-emerald-300 hover:border-emerald-300 transition flex items-center gap-1">
-        <img data-rpg-icon="two-coins" class="w-4 h-4 rounded" alt="" />
-        <span>[P] Shop</span>
-      </button>
-      <button onclick="resetCharacter()" class="mmo-frame px-2 py-1 rounded-lg text-[10px] font-semibold text-rose-300 hover:border-rose-400 transition">Reset</button>
     </div>
   </div>
 
@@ -157,6 +166,32 @@
     <!-- COMPACT TRANSPARENT COMBAT LOG -->
     <div id="combat-log" class="glass w-full max-w-xl h-16 rounded-lg px-3 py-1.5 mb-1.5 overflow-y-auto text-[11px] space-y-0.5 font-mono text-slate-300 pointer-events-auto">
       <div class="text-amber-300 font-semibold">★ Welcome to Arcanastride MMORPG! Walk with [WASD] ([S] turns & rotates camera). Press [M] for Dungeon Finder & Atlas Maps, [O] for Stats/Skills, [I] for Bag, [P] for Shop, [C] for Hero Class!</div>
+    </div>
+
+    <!-- UI SHORTCUT BAR (Placed between Combat Log and Skillbar) -->
+    <div class="flex flex-wrap justify-center items-center gap-1.5 mb-1.5 pointer-events-auto">
+      <button onclick="toggleDungeonModal()" class="mmo-frame px-2.5 py-1 rounded-lg text-[10px] font-bold text-purple-300 hover:border-purple-300 transition flex items-center gap-1 shadow-md">
+        <img data-rpg-icon="dungeon-portal" class="w-4 h-4 rounded" alt="" />
+        <span>[M] Atlas</span>
+      </button>
+      <button onclick="toggleStatsModal()" class="mmo-frame px-2.5 py-1 rounded-lg text-[10px] font-bold text-amber-300 hover:border-yellow-300 transition flex items-center gap-1 shadow-md">
+        <img data-rpg-icon="spell-book" class="w-4 h-4 rounded" alt="" />
+        <span>[O] Stats</span>
+        <span id="top-unspent-badge" class="bg-amber-500 text-slate-950 font-black px-1.5 rounded-full text-[9px]">7</span>
+      </button>
+      <button onclick="toggleInventoryModal()" class="mmo-frame px-2.5 py-1 rounded-lg text-[10px] font-bold text-cyan-300 hover:border-cyan-300 transition flex items-center gap-1 shadow-md">
+        <img data-rpg-icon="knapsack" class="w-4 h-4 rounded" alt="" />
+        <span>[I] Bag</span>
+      </button>
+      <button onclick="openClassModal()" class="mmo-frame px-2.5 py-1 rounded-lg text-[10px] font-bold text-fuchsia-300 hover:border-fuchsia-300 transition flex items-center gap-1 shadow-md">
+        <img data-rpg-icon="visored-helm" class="w-4 h-4 rounded" alt="" />
+        <span>[C] Class</span>
+      </button>
+      <button onclick="toggleShopModal()" class="mmo-frame px-2.5 py-1 rounded-lg text-[10px] font-bold text-emerald-300 hover:border-emerald-300 transition flex items-center gap-1 shadow-md">
+        <img data-rpg-icon="two-coins" class="w-4 h-4 rounded" alt="" />
+        <span>[P] Shop</span>
+      </button>
+      <button onclick="resetCharacter()" class="mmo-frame px-2.5 py-1 rounded-lg text-[10px] font-semibold text-rose-300 hover:border-rose-400 transition shadow-md">Reset</button>
     </div>
 
     <!-- MAIN DIABLO 2 / WOW DOCK -->

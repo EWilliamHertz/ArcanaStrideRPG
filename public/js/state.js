@@ -79,7 +79,9 @@ let listeningForSlotKeybind = null;
 // Track per-action cooldowns: { [actionId]: { start: number, end: number, duration: number } }
 const actionCooldowns = {};
 
-// 3D World Collections
+// 3D World Collections & Targeting
+let currentTargetEnemy = null;
+let targetGroundRing = null;
 const enemies = [];
 const caches = [];
 const particles = [];

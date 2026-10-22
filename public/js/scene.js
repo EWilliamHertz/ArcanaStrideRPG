@@ -99,6 +99,20 @@ roadMesh.position.set(0, 0.02, -22);
 roadMesh.receiveShadow = true;
 scene.add(roadMesh);
 
+// MMORPG 3D Ground Target Projector Ring (under clicked enemy)
+const targetRingGeo = new THREE.RingGeometry(1.35, 1.65, 36);
+const targetRingMat = new THREE.MeshBasicMaterial({
+  color: 0xf43f5e,
+  side: THREE.DoubleSide,
+  transparent: true,
+  opacity: 0.85
+});
+targetGroundRing = new THREE.Mesh(targetRingGeo, targetRingMat);
+targetGroundRing.rotation.x = -Math.PI / 2;
+targetGroundRing.position.set(0, 0.06, 0);
+targetGroundRing.visible = false;
+scene.add(targetGroundRing);
+
 // 2D Billboard Sprite Factories & 3D Mesh Utilities
 function drawCanvasEmblem(ctx, cx, cy, radius, color, labelHint = '') {
   // Glowing emblem disc

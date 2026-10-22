@@ -188,6 +188,12 @@ function executeSkill(skillId) {
       e.hp = Math.max(0, e.hp - dmg);
       e.hpFg.scale.x = Math.max(0.01, e.hp / e.maxHp);
 
+      if (!currentTargetEnemy) {
+        setTargetEnemy(e);
+      } else if (currentTargetEnemy === e) {
+        updateTargetHUD();
+      }
+
       createBurst(e.group.position, meta.waveColor, 10);
       spawnFloatingText(
         e.group.position,
@@ -210,26 +216,31 @@ function executeSkill(skillId) {
 }
 
 function handleEnemyDefeat(e, index) {
-  player.gold += e.gold;
-  player.xp += e.xp;
+  const earnedGold = Math.max(0, Number(e.gold) || 0);
+  const earnedXp = Math.max(0, Number(e.xp) || 0);
+  player.gold = Math.max(0, (Number(player.gold) || 0) + earnedGold);
+  player.xp = Math.max(0, (Number(player.xp) || 0) + earnedXp);
   createBurst(e.group.position, 0xfacc15, 14);
-  addLog(`Slain ${e.name}! +${e.gold}g | +${e.xp} EXP`, "text-emerald-400 font-semibold");
+  addLog(`Slain ${e.name}! +${earnedGold}g | +${earnedXp} EXP`, "text-emerald-400 font-semibold");
 
-  const zone = typeof getActiveZone === 'function' ? getActiveZone() : DUNGEON_ZONES[0];
-  const mapBonuses = typeof getMapAggregateBonuses === 'function' ? getMapAggregateBonuses() : { quantBonus: 0, quantMult: 1 };
+  const zone = typeof getActiveZoneConfig === 'function' ? getActiveZoneConfig() : DUNGEON_ZONES[0];
+  const modSummary = typeof getMapModifiersSummary === 'function' ? getMapModifiersSummary() : { quantBonus: 0, quantMult: 1 };
+  const quantMult = Number(modSummary.quantMult) || (1 + (Number(modSummary.quantBonus) || 0) / 100);
 
   // Chance to drop Path of Exile Chaos Orb
-  if (e.isBoss || Math.random() < 0.22 * mapBonuses.quantMult) {
-    player.chaosOrbs = (player.chaosOrbs || 0) + (e.isBoss ? 2 : 1);
+  if (e.isBoss || Math.random() < 0.22 * quantMult) {
+    player.chaosOrbs = Math.max(0, (Number(player.chaosOrbs) || 0) + (e.isBoss ? 2 : 1));
     addLog(`★ ATLAS CURRENCY: Looted ${e.isBoss ? '2x ' : ''}Chaos Orb! Use in [M] Map Device to roll Rare Maps!`, "text-yellow-300 font-bold");
     spawnFloatingText(e.group.position, "+CHAOS ORB!", "#facc15");
   }
 
   // Drop Diablo/PoE Wargear into [I] Inventory
-  const dropChance = e.isBoss ? 1.0 : Math.min(0.90, 0.38 * mapBonuses.quantMult);
+  const dropChance = e.isBoss ? 1.0 : Math.min(0.90, 0.38 * quantMult);
   if (Math.random() < dropChance) {
-    const tierBoost = (zone.lootTierBonus || 0) + (e.isBoss ? 2 : 0) + (selectedMapRarity === 'corrupted' ? 2 : selectedMapRarity === 'rare' ? 1 : 0);
-    const dropped = generateLootDrop(tierBoost);
+    const tierBonus = Math.max(0, Number(zone.lootTierBonus ?? (zone.tier ? zone.tier - 1 : 0)) || 0)
+      + (e.isBoss ? 2 : 0)
+      + (selectedMapRarity === 'Corrupted' ? 2 : selectedMapRarity === 'Rare' ? 1 : 0);
+    const dropped = generateLootDrop(tierBonus);
     if ((player.inventory || []).length < 16) {
       player.inventory.push(dropped);
       addLog(`★ LOOT DROP: Found [${dropped.rarity}] ${dropped.name}! Press [I] to equip!`, "text-amber-300 font-bold");
@@ -240,6 +251,9 @@ function handleEnemyDefeat(e, index) {
     }
   }
 
+  if (currentTargetEnemy === e) {
+    clearTargetEnemy();
+  }
   scene.remove(e.group);
   enemies.splice(index, 1);
 

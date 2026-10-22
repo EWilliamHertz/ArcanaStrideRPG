@@ -6,6 +6,11 @@ function getActiveZoneConfig() {
   return DUNGEON_ZONES.find(z => z.id === activeZoneId) || DUNGEON_ZONES[0];
 }
 
+// Alias for backwards compatibility
+function getActiveZone() {
+  return getActiveZoneConfig();
+}
+
 function getMapModifiersSummary() {
   let dmgMult = 1.0;
   let hpMult = 1.0;
@@ -14,7 +19,7 @@ function getMapModifiersSummary() {
   let quantBonus = 0;
   let twinBoss = false;
 
-  activeMapAffixes.forEach(aff => {
+  (activeMapAffixes || []).forEach(aff => {
     dmgMult *= (aff.dmgMult || 1.0);
     hpMult *= (aff.hpMult || 1.0);
     packMult *= (aff.packMult || 1.0);
@@ -28,7 +33,20 @@ function getMapModifiersSummary() {
     twinBoss = true;
   }
 
-  return { dmgMult, hpMult, packMult, speedMult, quantBonus, twinBoss };
+  return {
+    dmgMult: Math.round(dmgMult * 100) / 100,
+    hpMult: Math.round(hpMult * 100) / 100,
+    packMult: Math.round(packMult * 100) / 100,
+    speedMult: Math.round(speedMult * 100) / 100,
+    quantBonus,
+    twinBoss,
+    quantMult: 1 + quantBonus / 100
+  };
+}
+
+// Alias for backwards compatibility
+function getMapAggregateBonuses() {
+  return getMapModifiersSummary();
 }
 
 function toggleDungeonModal() {
@@ -36,8 +54,12 @@ function toggleDungeonModal() {
   if (!modal) return;
   const isHidden = modal.classList.contains('hidden');
   if (isHidden) {
-    document.getElementById('stats-modal').classList.add('hidden');
-    document.getElementById('inventory-modal').classList.add('hidden');
+    const statsModal = document.getElementById('stats-modal');
+    if (statsModal) statsModal.classList.add('hidden');
+    const invModal = document.getElementById('inventory-modal');
+    if (invModal) invModal.classList.add('hidden');
+    const classModal = document.getElementById('class-modal');
+    if (classModal) classModal.classList.add('hidden');
     renderDungeonModal();
     modal.classList.remove('hidden');
   } else {
@@ -45,40 +67,51 @@ function toggleDungeonModal() {
   }
 }
 
-function rollPoEMapAffixes(mode) {
-  if (mode === 'normal') {
+function selectPoEMapRarity(rarity) {
+  const norm = String(rarity || 'normal').toLowerCase();
+  if (norm === 'normal') {
     selectedMapRarity = 'Normal';
     activeMapAffixes = [];
     addLog("Scoured Map to Normal (White) — 0 Modifiers.", "text-slate-300");
-  } else if (mode === 'magic') {
-    if (player.gold < 40) return addLog("Need 40 Gold to Transmute Map!", "text-rose-400");
-    player.gold -= 40;
+  } else if (norm === 'magic') {
     selectedMapRarity = 'Magic';
     activeMapAffixes = pickRandomAffixes(2);
-    addLog("Transmuted Map to Magic (Blue) with 2 Path of Exile Affixes!", "text-cyan-300 font-bold");
-  } else if (mode === 'rare') {
-    if ((player.chaosOrbs || 0) > 0) {
-      player.chaosOrbs -= 1;
-    } else if (player.gold >= 100) {
-      player.gold -= 100;
-    } else {
-      return addLog("Need 1 Chaos Orb or 100 Gold to Chaos-Roll a Rare Map!", "text-rose-400");
-    }
+    addLog("Rolled Magic (Blue) Map with 2 Path of Exile Affixes!", "text-cyan-300 font-bold");
+  } else if (norm === 'rare') {
     selectedMapRarity = 'Rare';
     activeMapAffixes = pickRandomAffixes(3 + Math.floor(Math.random() * 2));
-    addLog("★ CHAOS ORB REFORGED: Map is now Rare (Yellow) with deadly modifiers & high loot quantity!", "text-yellow-300 font-bold");
-  } else if (mode === 'vaal') {
-    if ((player.chaosOrbs || 0) >= 2) {
-      player.chaosOrbs -= 2;
-    } else if (player.gold >= 220) {
-      player.gold -= 220;
-    } else {
-      return addLog("Need 2 Chaos Orbs or 220 Gold to Vaal-Corrupt a Map!", "text-rose-400");
-    }
+    addLog("Rolled Rare (Yellow) Map with high danger & bonus loot!", "text-yellow-300 font-bold");
+  } else if (norm === 'corrupted' || norm === 'vaal') {
     selectedMapRarity = 'Corrupted';
     activeMapAffixes = pickRandomAffixes(5);
-    addLog("★★★ VAAL ORB CORRUPTION: Map is now Corrupted Red (5 Affixes + Twin Bosses + +200% Loot)!", "text-rose-400 font-extrabold");
+    addLog("★★★ Vaal Corrupted Map (5 Affixes + Twin Bosses + +120% Loot)! ★★★", "text-rose-400 font-extrabold");
   }
+  updateDungeonTrackerUI();
+  updateHUD();
+  renderDungeonModal();
+  syncSave();
+}
+
+function rollPoEMapAffixes(mode = 'rare') {
+  if (mode === true || mode === 'reforge' || mode === 'rare') {
+    if ((player.chaosOrbs || 0) > 0) {
+      player.chaosOrbs -= 1;
+      addLog("★ Reforged Map Affixes with 1 Chaos Orb!", "text-yellow-300 font-bold");
+    } else if (player.gold >= 100) {
+      player.gold -= 100;
+      addLog("★ Spent 100 Gold to Reforge Map Affixes!", "text-amber-300 font-bold");
+    } else {
+      addLog("Need 1 Chaos Orb or 100 Gold to Reforge Map Affixes!", "text-rose-400 font-bold");
+      return;
+    }
+    selectedMapRarity = selectedMapRarity === 'Corrupted' ? 'Corrupted' : 'Rare';
+    const count = selectedMapRarity === 'Corrupted' ? 5 : (3 + Math.floor(Math.random() * 2));
+    activeMapAffixes = pickRandomAffixes(count);
+  } else {
+    selectPoEMapRarity(mode);
+    return;
+  }
+  updateDungeonTrackerUI();
   updateHUD();
   renderDungeonModal();
   syncSave();
@@ -100,6 +133,11 @@ function enterDungeonZone(zoneId) {
   dungeonKills = 0;
   dungeonBossSpawned = false;
 
+  // Clear current targeted enemy if any
+  if (typeof clearTargetEnemy === 'function') {
+    clearTargetEnemy();
+  }
+
   // Update 3D Scene Atmosphere (Sky, Fog & Terrain tint)
   scene.background = new THREE.Color(zone.skyColor);
   scene.fog = new THREE.FogExp2(zone.skyColor, 0.0034);
@@ -115,12 +153,21 @@ function enterDungeonZone(zoneId) {
   updateHUD();
   syncSave();
 
-  document.getElementById('dungeon-modal').classList.add('hidden');
+  const modal = document.getElementById('dungeon-modal');
+  if (modal) modal.classList.add('hidden');
+
   const modSummary = getMapModifiersSummary();
   addLog(
-    `★ Entered [${selectedMapRarity}] ${zone.name} (Tier ${zone.tier} • +${modSummary.quantBonus}% Item Quantity)! Slay ${zone.killTarget} foes to draw out ${zone.bossName}!`,
+    `★ Entered [${selectedMapRarity}] ${zone.name} (Tier ${zone.tier} • +${modSummary.quantBonus}% Loot)! Slay ${zone.killTarget} foes to summon ${zone.bossName}!`,
     "text-amber-300 font-extrabold"
   );
+}
+
+function returnToOutpostHub() {
+  enterDungeonZone('outpost_wilds');
+  addLog("Warped back to Sanctuary Outpost Hub.", "text-emerald-400 font-bold");
+  const modal = document.getElementById('dungeon-modal');
+  if (modal) modal.classList.add('hidden');
 }
 
 function updateDungeonTrackerUI() {
@@ -147,15 +194,17 @@ function updateDungeonTrackerUI() {
   }
 
   const pct = Math.min(100, Math.round((dungeonKills / zone.killTarget) * 100));
-  progBarEl.style.width = `${pct}%`;
+  if (progBarEl) progBarEl.style.width = `${pct}%`;
 
   const bossAlive = enemies.some(e => e.isBoss);
-  if (bossAlive) {
-    progTextEl.innerText = `★ BOSS ENGAGED: Slay ${zone.bossName}! ★`;
-  } else if (dungeonKills >= zone.killTarget) {
-    progTextEl.innerText = `★ Dungeon Cleared (${dungeonKills}/${zone.killTarget}) — Click [Boss] or Re-Queue [M]!`;
-  } else {
-    progTextEl.innerText = `Dungeon Forces: ${dungeonKills} / ${zone.killTarget} Slain (Spawns ${zone.bossName})`;
+  if (progTextEl) {
+    if (bossAlive) {
+      progTextEl.innerText = `★ BOSS ENGAGED: Slay ${zone.bossName}! ★`;
+    } else if (dungeonKills >= zone.killTarget) {
+      progTextEl.innerText = `★ Dungeon Cleared (${dungeonKills}/${zone.killTarget}) — Click [Boss] or Re-Queue [M]!`;
+    } else {
+      progTextEl.innerText = `Dungeon Forces: ${dungeonKills} / ${zone.killTarget} Slain (Spawns ${zone.bossName})`;
+    }
   }
 }
 
@@ -178,70 +227,112 @@ function summonZoneBossNow() {
 }
 
 function renderDungeonModal() {
-  const chaosEl = document.getElementById('modal-chaos-count');
-  const goldEl = document.getElementById('modal-map-gold');
-  const affixBox = document.getElementById('active-map-affixes');
-  const listEl = document.getElementById('dungeon-zones-list');
-  if (!listEl) return;
+  // Support both ID naming conventions
+  const chaosEl = document.getElementById('poe-chaos-count') || document.getElementById('modal-chaos-count');
+  const affixBox = document.getElementById('poe-affix-list') || document.getElementById('active-map-affixes');
+  const summaryEl = document.getElementById('poe-bonus-summary');
+  const listEl = document.getElementById('dungeon-zone-list') || document.getElementById('dungeon-zones-list');
 
   if (chaosEl) chaosEl.innerText = player.chaosOrbs || 0;
-  if (goldEl) goldEl.innerText = `${player.gold || 0}g`;
 
   const modSummary = getMapModifiersSummary();
-  const rarityColor = selectedMapRarity === 'Corrupted' ? '#f43f5e'
-    : selectedMapRarity === 'Rare' ? '#facc15'
-    : selectedMapRarity === 'Magic' ? '#38bdf8' : '#cbd5e1';
+  const currentRarity = (selectedMapRarity || 'Normal').toLowerCase();
 
-  if (affixBox) {
-    if (activeMapAffixes.length === 0) {
-      affixBox.innerHTML = `<div class="text-slate-400 text-xs">Current Map State: <b class="text-white">Normal (White)</b> — No bonus Path of Exile modifiers active. Click Transmute, Chaos Roll, or Vaal Corrupt above to boost Item Quantity & Rarity!</div>`;
+  // 1. Update Rarity Buttons
+  const rarities = ['normal', 'magic', 'rare', 'corrupted'];
+  rarities.forEach(r => {
+    const btn = document.getElementById(`rarity-btn-${r}`);
+    if (!btn) return;
+    if (r === currentRarity) {
+      if (r === 'normal') btn.className = 'px-2.5 py-1.5 rounded-lg border text-xs bg-slate-800 text-white font-bold border-slate-300 shadow-md ring-2 ring-slate-400';
+      else if (r === 'magic') btn.className = 'px-2.5 py-1.5 rounded-lg border text-xs bg-cyan-950 text-cyan-200 font-bold border-cyan-400 shadow-md ring-2 ring-cyan-400';
+      else if (r === 'rare') btn.className = 'px-2.5 py-1.5 rounded-lg border text-xs bg-amber-950 text-amber-200 font-bold border-yellow-400 shadow-md ring-2 ring-yellow-400';
+      else if (r === 'corrupted') btn.className = 'px-2.5 py-1.5 rounded-lg border text-xs bg-rose-950 text-rose-200 font-black border-rose-500 shadow-md ring-2 ring-rose-500';
     } else {
+      btn.className = 'px-2.5 py-1.5 rounded-lg border text-xs bg-slate-900 text-slate-400 border-slate-700 hover:text-white hover:border-slate-500 transition';
+    }
+  });
+
+  // 2. Update Affixes Box
+  if (affixBox) {
+    if (!activeMapAffixes || activeMapAffixes.length === 0) {
       affixBox.innerHTML = `
-        <div class="flex justify-between items-center mb-1">
-          <span class="font-extrabold text-xs" style="color:${rarityColor}">Active Map State: ${selectedMapRarity} Map (+${modSummary.quantBonus}% EXP, Gold & Item Rarity)</span>
-          ${modSummary.twinBoss ? `<span class="text-[10px] bg-rose-900/90 border border-rose-400 text-rose-200 px-2 py-0.5 rounded font-bold">TWIN BOSSES</span>` : ''}
+        <div class="text-[11px] text-slate-400 italic p-2 bg-slate-900/60 rounded-lg border border-slate-800">
+          Current State: <b class="text-white">Normal (0 Modifiers)</b>.<br/>Select Magic, Rare, or Vaal Corrupted, or click Reforge with Chaos Orbs to craft deadly modifiers with high bonus loot!
+        </div>`;
+    } else {
+      affixBox.innerHTML = activeMapAffixes.map(a => `
+        <div class="p-2 rounded-lg bg-slate-900/90 border border-amber-700/40 text-[11px]">
+          <div class="font-black text-amber-300 flex items-center justify-between mb-0.5">
+            <span>• ${a.name}</span>
+            <span class="text-[9px] text-emerald-400 font-mono">+${a.quantBonus || 0}% Loot</span>
+          </div>
+          <div class="text-[10px] text-slate-300">${a.desc}</div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px] text-indigo-200">
-          ${activeMapAffixes.map(a => `<div>• <b class="text-amber-300">${a.name}:</b> ${a.desc}</div>`).join('')}
-        </div>
-      `;
+      `).join('');
     }
   }
 
-  listEl.innerHTML = '';
-  DUNGEON_ZONES.forEach(zone => {
-    const isCurrent = zone.id === activeZoneId;
-    const effHp = Math.round(zone.monsterMult * modSummary.hpMult * 100);
-    const effDmg = Math.round(zone.monsterMult * modSummary.dmgMult * 100);
+  // 3. Update Yield & Danger Summary
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-800 text-center">
+        <span class="text-[9px] text-slate-400 block font-bold">BONUS LOOT</span>
+        <span class="text-xs font-black text-emerald-400">+${modSummary.quantBonus}%</span>
+      </div>
+      <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-800 text-center">
+        <span class="text-[9px] text-slate-400 block font-bold">MONSTER HP</span>
+        <span class="text-xs font-black text-rose-400">+${Math.round((modSummary.hpMult - 1) * 100)}%</span>
+      </div>
+      <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-800 text-center">
+        <span class="text-[9px] text-slate-400 block font-bold">MONSTER DMG</span>
+        <span class="text-xs font-black text-amber-400">+${Math.round((modSummary.dmgMult - 1) * 100)}%</span>
+      </div>
+      <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-800 text-center">
+        <span class="text-[9px] text-slate-400 block font-bold">PACK DENSITY</span>
+        <span class="text-xs font-black text-cyan-400">+${Math.round((modSummary.packMult - 1) * 100)}%</span>
+      </div>
+    `;
+  }
 
-    const card = document.createElement('div');
-    card.className = `p-3 rounded-xl border-2 transition flex flex-col justify-between bg-slate-900/95 hover:bg-slate-900`;
-    card.style.borderColor = isCurrent ? '#facc15' : zone.borderColor;
+  // 4. Update Dungeon Zones List
+  if (listEl) {
+    listEl.innerHTML = '';
+    DUNGEON_ZONES.forEach(zone => {
+      const isCurrent = zone.id === activeZoneId;
+      const effHp = Math.round(zone.monsterMult * modSummary.hpMult * 100);
+      const effDmg = Math.round(zone.monsterMult * modSummary.dmgMult * 100);
 
-    card.innerHTML = `
-      <div>
-        <div class="flex items-center gap-2.5 mb-2">
-          <img src="${getRpgIcon(zone.icon)}" class="w-11 h-11 rounded-lg border border-amber-500/50 shrink-0" />
-          <div class="min-w-0 flex-1">
-            <div class="flex justify-between items-center">
-              <span class="text-[10px] uppercase font-extrabold tracking-wider" style="color:${zone.borderColor}">${zone.category}</span>
-              <span class="text-[10px] bg-slate-950 px-2 py-0.5 rounded border border-slate-700 font-bold text-amber-300">Tier ${zone.tier} (Lv.${zone.minLevel}+)</span>
+      const card = document.createElement('div');
+      card.className = `p-3.5 rounded-xl border-2 transition flex flex-col justify-between bg-slate-900/95 hover:bg-slate-900 shadow-lg`;
+      card.style.borderColor = isCurrent ? '#facc15' : zone.borderColor;
+
+      card.innerHTML = `
+        <div>
+          <div class="flex items-center gap-2.5 mb-2">
+            <img src="${getRpgIcon(zone.icon)}" class="w-11 h-11 rounded-lg border border-amber-500/50 shrink-0" alt="" />
+            <div class="min-w-0 flex-1">
+              <div class="flex justify-between items-center">
+                <span class="text-[10px] uppercase font-extrabold tracking-wider" style="color:${zone.borderColor}">${zone.category}</span>
+                <span class="text-[10px] bg-slate-950 px-2 py-0.5 rounded border border-slate-700 font-bold text-amber-300">Tier ${zone.tier} (Lv.${zone.minLevel}+)</span>
+              </div>
+              <h3 class="text-sm font-black text-white truncate">${zone.name}</h3>
             </div>
-            <h3 class="text-sm font-black text-white truncate">${zone.name}</h3>
+          </div>
+          <p class="text-[11px] text-slate-300 mb-2 leading-snug">${zone.desc}</p>
+          <div class="bg-slate-950/90 p-2 rounded-lg border border-slate-800 text-[10px] space-y-0.5 mb-2.5">
+            <div class="flex justify-between"><span class="text-slate-400">Dungeon Boss:</span><b class="text-rose-300">${zone.bossName}</b></div>
+            <div class="flex justify-between"><span class="text-slate-400">Monster Scaling:</span><b class="text-amber-300">${effHp}% HP • ${effDmg}% DMG</b></div>
+            <div class="flex justify-between"><span class="text-slate-400">Total Loot Quantity:</span><b class="text-emerald-300">+${(zone.tier - 1) * 20 + modSummary.quantBonus}% Bonus</b></div>
           </div>
         </div>
-        <p class="text-[11px] text-slate-300 mb-2 leading-snug">${zone.desc}</p>
-        <div class="bg-slate-950/90 p-2 rounded-lg border border-slate-800 text-[10px] space-y-0.5 mb-2.5">
-          <div class="flex justify-between"><span class="text-slate-400">Dungeon Boss:</span><b class="text-rose-300">${zone.bossName}</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Monster Power:</span><b class="text-amber-300">${effHp}% HP / ${effDmg}% DMG</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Loot Quantity:</span><b class="text-emerald-300">+${(zone.tier - 1) * 25 + modSummary.quantBonus}% Bonus</b></div>
-        </div>
-      </div>
-      <button onclick="enterDungeonZone('${zone.id}')"
-              class="w-full py-2 rounded-lg font-extrabold text-xs transition ${isCurrent ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
-        ${isCurrent ? 'Re-Instance / Reset Zone' : 'Teleport & Open Instance'}
-      </button>
-    `;
-    listEl.appendChild(card);
-  });
+        <button onclick="enterDungeonZone('${zone.id}')"
+                class="w-full py-2 rounded-lg font-extrabold text-xs transition shadow-md ${isCurrent ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 ring-2 ring-yellow-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
+          ${isCurrent ? '★ Current Zone (Click to Reset/Re-Instance)' : 'Teleport to Dungeon'}
+        </button>
+      `;
+      listEl.appendChild(card);
+    });
+  }
 }
+

@@ -276,20 +276,44 @@ function spawnEnemy(isBoss = false, indexHint = -1) {
       scale: zone.bossScale || 2.1
     };
     forcedModel = zone.bossModel || 'skeletonWarrior';
-    // Spawn near player if triggered by Dungeon Kill Target, or near Boss Gate
     const nearGate = playerGroup.position.distanceTo(bossGatePos) < 22;
     x = (nearGate ? bossGatePos.x : playerGroup.position.x) + (Math.random() - 0.5) * 10;
     z = (nearGate ? bossGatePos.z + 7 : playerGroup.position.z - 12);
   } else {
     template = ENEMY_TYPES[(indexHint >= 0 ? indexHint : Math.floor(Math.random() * ENEMY_TYPES.length)) % ENEMY_TYPES.length];
-    const angle = Math.random() * Math.PI * 2;
-    const dist = indexHint >= 0 && indexHint < 8
-      ? 16 + Math.random() * 22
-      : 22 + Math.random() * 65;
-    x = Math.cos(angle) * dist;
-    z = Math.sin(angle) * dist - 8;
-    if (Math.hypot(x, z - 12) < 12) {
-      x += (x >= 0 ? 14 : -14);
+    let foundPos = false;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = indexHint >= 0 && indexHint < 8
+        ? 16 + Math.random() * 24
+        : 22 + Math.random() * 65;
+      const candX = Math.cos(angle) * dist;
+      let candZ = Math.sin(angle) * dist - 8;
+      if (Math.hypot(candX, candZ - 12) < 12) {
+        candZ += (candZ >= 12 ? 14 : -14);
+      }
+
+      // Check distance against existing enemies to avoid spawn stacking
+      let tooClose = false;
+      for (let j = 0; j < enemies.length; j++) {
+        const other = enemies[j];
+        const dx = other.group.position.x - candX;
+        const dz = other.group.position.z - candZ;
+        if (dx * dx + dz * dz < 4.5 * 4.5) {
+          tooClose = true;
+          break;
+        }
+      }
+      if (!tooClose || attempt === 29) {
+        x = candX;
+        z = candZ;
+        foundPos = true;
+        break;
+      }
+    }
+    if (!foundPos) {
+      x = 20 + Math.random() * 15;
+      z = 20 + Math.random() * 15;
     }
   }
 
@@ -342,6 +366,8 @@ function spawnEnemy(isBoss = false, indexHint = -1) {
     isBoss,
     forcedModel,
     name: template.name,
+    icon: template.icon || '⚔️',
+    radius: (template.scale || 1) * (isBoss ? 1.9 : 1.25),
     maxHp: finalHp,
     hp: finalHp,
     atk: finalAtk,

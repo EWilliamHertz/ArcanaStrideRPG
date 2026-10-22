@@ -4,10 +4,19 @@
   "main": "game.js",
   "scripts": {
     "start": "node game.js",
+    "dev": "node --watch game.js",
     "tunnel": "/home/ewilliamhe/.local/bin/ngrok http 8080"
   },
-  "keywords": ["3d", "rpg", "threejs", "glb"],
+  "keywords": [
+    "3d",
+    "rpg",
+    "threejs",
+    "glb"
+  ],
   "author": "",
   "license": "ISC",
-  "description": "Arcanastride 3D: Open World Chronicles"
+  "description": "Arcanastride 3D: Open World Chronicles",
+  "dependencies": {
+    "ws": "^8.22.0"
+  }
 }

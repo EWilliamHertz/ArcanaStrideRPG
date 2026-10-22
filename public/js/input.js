@@ -1,10 +1,40 @@
 // ============================================================
-// ARCANASTRIDE 3D: KEYBOARD, HOTKEY & ORBITAL CAMERA INPUTS
+// ARCANASTRIDE 3D: KEYBOARD, HOTKEY, TAB FOCUS & TARGET SELECTION
 // ============================================================
+
+function resetAllInputKeys() {
+  for (const k in keys) {
+    delete keys[k];
+  }
+  sTurnTargetYaw = null;
+  sMovementYaw = null;
+  listeningForSlotKeybind = null;
+  isPointerDown = false;
+}
+
+window.addEventListener('blur', () => {
+  resetAllInputKeys();
+});
+
+window.addEventListener('focus', () => {
+  resetAllInputKeys();
+  window.focus();
+});
+
+document.addEventListener('visibilitychange', () => {
+  resetAllInputKeys();
+  if (!document.hidden) {
+    window.focus();
+  }
+});
 
 window.addEventListener('keydown', (e) => {
   // Ignore hotkeys if typing inside an input or select element
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) {
+    if (e.key === 'Escape') {
+      e.target.blur();
+      window.focus();
+    }
     return;
   }
 
@@ -51,6 +81,10 @@ window.addEventListener('keydown', (e) => {
   }
 
   if (e.key === 'Escape') {
+    if (currentTargetEnemy) {
+      clearTargetEnemy();
+      return;
+    }
     closeShop();
     closeClassModal();
     document.getElementById('stats-modal').classList.add('hidden');
@@ -141,19 +175,39 @@ window.addEventListener('selectstart', (e) => {
   e.preventDefault();
 });
 
+let mouseDownPos = { x: 0, y: 0 };
+let mouseDownTime = 0;
+
 window.addEventListener('mousedown', (e) => {
   if (e.target && e.target.tagName === 'CANVAS') {
-    e.preventDefault();
+    // Restore window focus and blur any active input element
+    if (document.activeElement && document.activeElement !== document.body && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    window.focus();
+
     if (window.getSelection) {
       window.getSelection().removeAllRanges();
     }
     isPointerDown = true;
     sTurnTargetYaw = null;
+    mouseDownPos = { x: e.clientX, y: e.clientY };
+    mouseDownTime = performance.now();
   }
 });
 
-window.addEventListener('mouseup', () => {
+window.addEventListener('mouseup', (e) => {
+  const wasPointerDown = isPointerDown;
   isPointerDown = false;
+
+  // Detect clean mouse click on the 3D canvas (not a camera rotation drag)
+  if (wasPointerDown && e.target && e.target.tagName === 'CANVAS') {
+    const distMoved = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+    const duration = performance.now() - mouseDownTime;
+    if (distMoved < 7 && duration < 600) {
+      handleMonsterClickSelection(e);
+    }
+  }
 });
 
 window.addEventListener('mousemove', (e) => {
@@ -165,6 +219,57 @@ window.addEventListener('mousemove', (e) => {
   cameraYaw -= e.movementX * 0.007;
   cameraPitch = Math.max(0.15, Math.min(1.15, cameraPitch + e.movementY * 0.006));
 });
+
+function handleMonsterClickSelection(e) {
+  const mouse = new THREE.Vector2(
+    (e.clientX / window.innerWidth) * 2 - 1,
+    -(e.clientY / window.innerHeight) * 2 + 1
+  );
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
+
+  let bestEnemy = null;
+  let closestCamDist = Infinity;
+
+  // 1. Precise raycast against enemy meshes
+  for (let i = 0; i < enemies.length; i++) {
+    const enemy = enemies[i];
+    if (!enemy || enemy.hp <= 0) continue;
+    const hits = raycaster.intersectObjects(enemy.group.children, true);
+    if (hits.length > 0) {
+      if (hits[0].distance < closestCamDist) {
+        closestCamDist = hits[0].distance;
+        bestEnemy = enemy;
+      }
+    }
+  }
+
+  // 2. Generous cylindrical proximity check for thin/flying monsters
+  if (!bestEnemy) {
+    for (let i = 0; i < enemies.length; i++) {
+      const enemy = enemies[i];
+      if (!enemy || enemy.hp <= 0) continue;
+
+      const center = enemy.group.position.clone();
+      center.y += (enemy.scale || 1.0) * 1.0;
+      const dToRay = raycaster.ray.distanceToPoint(center);
+      const threshold = (enemy.scale || 1.0) * (enemy.isBoss ? 2.5 : 1.6);
+      if (dToRay < threshold) {
+        const camDist = camera.position.distanceTo(center);
+        if (camDist < closestCamDist) {
+          closestCamDist = camDist;
+          bestEnemy = enemy;
+        }
+      }
+    }
+  }
+
+  if (bestEnemy) {
+    setTargetEnemy(bestEnemy);
+  } else {
+    clearTargetEnemy();
+  }
+}
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
