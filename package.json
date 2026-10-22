@@ -1,0 +1,13 @@
+{
+  "name": "arcanastride-rpg",
+  "version": "1.0.0",
+  "main": "game.js",
+  "scripts": {
+    "start": "node game.js",
+    "tunnel": "/home/ewilliamhe/.local/bin/ngrok http 8080"
+  },
+  "keywords": ["3d", "rpg", "threejs", "glb"],
+  "author": "",
+  "license": "ISC",
+  "description": "Arcanastride 3D: Open World Chronicles"
+}
