@@ -4,9 +4,9 @@
   "main": "game.js",
   "scripts": {
     "start": "node game.js",
-    "dev": "next dev -p 8080",
+    "dev": "node --watch game.js",
+    "next": "next dev -p 8080",
     "build": "next build",
-    "server": "node game.js",
     "tunnel": "/home/ewilliamhe/.local/bin/ngrok http 8080"
   },
   "keywords": [
